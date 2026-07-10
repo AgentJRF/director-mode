@@ -1,4 +1,4 @@
-import { S, hasAnim } from '../store';
+import { S, hasAnim, DEFAULT_APERTURE } from '../store';
 import { useRev } from './bits';
 import { evaluate, keysOf, EASE_LIST, EASES, round } from '../lib/eval';
 import { OBJECT_CENTERS } from '../lib/eval';
@@ -82,7 +82,19 @@ export default function Inspector() {
         <Slider label="Focale" value={cam.optics.focalLength} min={14} max={200} step={1} unit="mm" onChange={v => st.setOptic('focalLength', v)} />
         <Slider label="Ouverture" value={cam.optics.aperture} min={1.4} max={16} step={0.1} prefix="f/" onChange={v => st.setOptic('aperture', v)} />
         <Slider label="Flou de mvt" value={cam.optics.motionBlurShutter} min={0} max={360} step={1} unit="°" onChange={v => st.setOptic('motionBlurShutter', v)} />
-        <div className="hint">Ouverture pilote le bokeh (flou d'arrière-plan). Focale → cadrage.</div>
+        <div className="row">
+          <label>Mise au point</label>
+          <span className="val">{cam.optics.focusPoint ? 'Focus choisi' : 'Focus général'}</span>
+        </div>
+        <div className="chip-row">
+          <button className={'btn-sm' + (st.ui.focusPicking ? ' amber' : '')} onClick={() => st.setFocusPicking(!st.ui.focusPicking)}>
+            ⊙ {st.ui.focusPicking ? 'Clique sur l\'asset…' : 'Choisir le point de focus'}
+          </button>
+          <button className={'btn-sm' + (cam.optics.focusPoint || cam.optics.aperture !== DEFAULT_APERTURE ? '' : ' locked')}
+            title="Focus général + ouverture par défaut"
+            onClick={() => st.resetFocus()}>↺ Réinitialiser</button>
+        </div>
+        <div className="hint">L'ouverture règle le flou dans les deux cas. Focus général = net sur le produit ; Focus choisi = net sur la zone cliquée.</div>
       </div>
 
       <div className="sect">

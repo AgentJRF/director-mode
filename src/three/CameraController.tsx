@@ -16,7 +16,7 @@ export default function CameraController({ renderCamRef }: { renderCamRef: RefOb
 
   useEffect(() => {
     const dom = gl.domElement;
-    const canOrbit = () => S().ui.viewMode === 'camera' && ['select', 'camera', 'optics'].includes(S().ui.tool);
+    const canOrbit = () => S().ui.viewMode === 'camera' && !S().ui.focusPicking && ['select', 'camera', 'optics'].includes(S().ui.tool);
     const down = (e: PointerEvent) => {
       if (!canOrbit()) return;
       dragging.current = true; last.current = { x: e.clientX, y: e.clientY };

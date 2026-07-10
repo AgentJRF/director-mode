@@ -23,7 +23,7 @@ export interface Camera {
   id: string;
   name: string;
   transform: { position: Vec3; rotation: Vec3 };
-  optics: { focalLength: number; aperture: number; motionBlurShutter: number };
+  optics: { focalLength: number; aperture: number; motionBlurShutter: number; focusPoint?: Vec3 | null };
   target: Target | null;
   keyframes: Keyframe[];
 }
@@ -40,6 +40,7 @@ export type Tool = 'select' | 'camera' | 'target' | 'optics' | 'generators';
 export interface Project {
   cameras: Camera[];
   activeCameraId: string;
+  fps: number;
   timeline: { duration: number; playhead: number; playing: boolean };
   canvas: { width: number; height: number };
   luts: LUT[];

@@ -5,6 +5,8 @@ import { PerspectiveCamera, OrbitControls } from '@react-three/drei';
 import { EffectComposer, DepthOfField } from '@react-three/postprocessing';
 import CameraController from './CameraController';
 import SceneGizmos from './SceneGizmos';
+import FocusPicker from './FocusPicker';
+import EditorFly from './EditorFly';
 import Product from './Product';
 import { useStore, PIVOT, S } from '../store';
 import { clamp } from '../lib/eval';
@@ -12,20 +14,21 @@ import { clamp } from '../lib/eval';
 function Lights() {
   return (
     <>
-      <hemisphereLight args={[0x4a525c, 0x14171a, 0.7]} />
-      <spotLight position={[6, 9, 6]} angle={0.8} penumbra={0.5} intensity={3.4} distance={40} decay={1.2}
-        color={0xfff2e0} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0003} />
-      <directionalLight position={[-7, 4, -3]} intensity={0.5} color={0x88a0c0} />
-      <directionalLight position={[-3, 6, -8]} intensity={0.8} color={0xbcd0ff} />
-      <directionalLight position={[5, 4, 9]} intensity={0.7} color={0xf0f0f5} />
+      <ambientLight intensity={0.55} color={0xd8dee6} />
+      <hemisphereLight args={[0x6b7480, 0x2a2f35, 1.0]} />
+      <spotLight position={[6, 9, 6]} angle={0.85} penumbra={0.5} intensity={4.6} distance={40} decay={1.2}
+        color={0xfff4e6} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0003} />
+      <directionalLight position={[-7, 4, -3]} intensity={0.8} color={0x9fb4cc} />
+      <directionalLight position={[-3, 6, -8]} intensity={1.0} color={0xbcd0ff} />
+      <directionalLight position={[5, 4, 9]} intensity={1.0} color={0xf2f2f6} />
     </>
   );
 }
 function Floor() {
   return (
     <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[26, 64]} /><meshStandardMaterial color={0x111417} roughness={0.85} metalness={0.1} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow userData={{ focusPickable: true }}>
+        <circleGeometry args={[26, 64]} /><meshStandardMaterial color={0x20252b} roughness={0.8} metalness={0.1} />
       </mesh>
       <gridHelper args={[40, 40, 0x1c2126, 0x141719]} position={[0, 0.001, 0]} />
     </>
@@ -33,11 +36,17 @@ function Floor() {
 }
 function DoF() {
   useStore(s => s.rev);
-  const ap = S().active().optics.aperture;
-  const bokeh = clamp((1 / ap) * 14 - 0.8, 0, 12);
+  const cam = S().active();
+  const ap = cam.optics.aperture;
+  const fp = cam.optics.focusPoint;
+  // Aperture always drives blur strength + depth of the sharp slab (world units).
+  // "Général" focuses on the product centre; "Focus choisi" focuses on the picked point.
+  const bokeh = clamp((1 / ap) * 10, 1, 8);
+  const range = clamp(ap * 0.4, 0.5, 8);
+  const target = fp ? new THREE.Vector3(fp[0], fp[1], fp[2]) : new THREE.Vector3(PIVOT.x, PIVOT.y, PIVOT.z);
   return (
     <EffectComposer>
-      <DepthOfField target={new THREE.Vector3(PIVOT.x, PIVOT.y, PIVOT.z)} focalLength={0.012} bokehScale={bokeh} height={480} />
+      <DepthOfField target={target} worldFocusRange={range} bokehScale={bokeh} height={720} />
     </EffectComposer>
   );
 }
@@ -49,14 +58,16 @@ export default function Scene() {
 
   return (
     <Canvas shadows dpr={[1, 2]} gl={{ preserveDrawingBuffer: true, antialias: true }}
-      onCreated={({ scene }) => { scene.background = new THREE.Color(0x0a0b0c); scene.fog = new THREE.Fog(0x0a0b0c, 16, 40); }}>
+      onCreated={({ scene, gl }) => { scene.background = new THREE.Color(0x1a1e22); scene.fog = new THREE.Fog(0x1a1e22, 22, 48); gl.toneMappingExposure = 1.25; }}>
       <PerspectiveCamera ref={renderCamRef} makeDefault={mode === 'camera'} fov={45} near={0.1} far={200} position={[4, 2.2, 5]} />
       <PerspectiveCamera makeDefault={mode === 'scene'} fov={50} near={0.1} far={500} position={[8, 5, 9]} />
       <Lights />
       <Floor />
       <Suspense fallback={null}><Product /></Suspense>
       <CameraController renderCamRef={renderCamRef} />
-      {mode === 'scene' && <OrbitControls makeDefault enableDamping dampingFactor={0.12} target={[0, 1.4, 0]} enabled={!gizmoDragging} enablePan minDistance={2} maxDistance={60} />}
+      <FocusPicker />
+      {mode === 'scene' && <OrbitControls makeDefault enableDamping dampingFactor={0.12} target={[0, 1.4, 0]} enabled={!gizmoDragging} enablePan screenSpacePanning panSpeed={1.1} minDistance={1.5} maxDistance={120} />}
+      {mode === 'scene' && <EditorFly />}
       {mode === 'scene' && <SceneGizmos renderCamRef={renderCamRef} />}
       {mode === 'camera' && <DoF />}
     </Canvas>

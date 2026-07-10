@@ -7,18 +7,22 @@
   --sans:"Inter",-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 *{box-sizing:border-box}
-html,body,#root{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;overflow:hidden;-webkit-font-smoothing:antialiased}
+html,body,#root{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;overflow:hidden;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+input,textarea,select{user-select:text;-webkit-user-select:text}
+#tl-svg{touch-action:none}
+#tl-svg text{user-select:none;-webkit-user-select:none}
 button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .hidden{display:none!important}
 
-#app{display:grid;height:100%;grid-template-columns:48px 1fr 300px;grid-template-rows:40px 1fr 168px;
+#app{display:grid;height:100%;grid-template-columns:48px 1fr 300px;grid-template-rows:40px 1fr 196px;
   grid-template-areas:"top top top" "tools stage inspect" "tools timeline inspect";}
 #topbar{grid-area:top;display:flex;align-items:center;gap:12px;padding:0 14px;background:#0a0c0d;border-bottom:1px solid var(--line)}
 #toolbar{grid-area:tools;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:10px}
-#stage{grid-area:stage;position:relative;overflow:hidden;background:#000}
+#stage{grid-area:stage;position:relative;overflow:hidden;background:#000;min-width:0}
 #inspector{grid-area:inspect;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto}
-#timeline{grid-area:timeline;background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+#timeline{grid-area:timeline;background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.tl-top{flex-wrap:wrap}
 
 .brand{font-weight:600;letter-spacing:.02em}
 .brand .dot{color:var(--amber)}
@@ -108,7 +112,20 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .time-read b{color:var(--ink)}
 .tl-spacer{flex:1}
 .tl-wrap{flex:1;position:relative;min-height:0;overflow:hidden}
-#tl-svg{width:100%;height:100%;display:block;cursor:crosshair}
+#tl-svg{display:block;cursor:crosshair}
+.tl-body{display:flex;min-height:0}
+.tl-gutter{flex:0 0 52px;position:relative;background:var(--panel);border-right:1px solid var(--line)}
+.tl-gutter .gl{position:absolute;left:8px;font-family:var(--mono);font-size:9px;color:#7a828a;letter-spacing:.5px}
+.tl-scroll{flex:1;overflow-x:auto;overflow-y:hidden}
+.tl-scroll::-webkit-scrollbar{height:9px}
+.tl-scroll::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:4px}
+.tl-scroll::-webkit-scrollbar-track{background:transparent}
+.tc{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--ink);background:#0e1113;border:1px solid var(--line-2);border-radius:5px;padding:3px 8px}
+.tl-field{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-2)}
+.tl-field select,.tl-field input{padding:3px 6px}
+.tl-zoom{display:flex;align-items:center;gap:8px;padding:5px 12px;border-top:1px solid var(--line)}
+.tl-zoom .mtn{color:var(--ink-3)}
+.tl-zoom input[type=range]{width:130px;flex:0 0 auto}
 
 .scrim{position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(2px)}
 .modal{background:var(--panel);border:1px solid var(--line-2);border-radius:12px;width:520px;max-width:92%;box-shadow:0 20px 80px rgba(0,0,0,.6);overflow:hidden}
@@ -145,3 +162,5 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .ld-inner{display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--ink-2);font-size:12px}
 .ld-spin{width:34px;height:34px;border:3px solid var(--line-2);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.focus-reticle{width:26px;height:26px;border:2px solid var(--amber);border-radius:50%;position:relative;box-shadow:0 0 0 1px rgba(0,0,0,.55),0 0 8px rgba(242,163,60,.5)}
+.focus-reticle::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;background:var(--amber);border-radius:50%;transform:translate(-50%,-50%)}

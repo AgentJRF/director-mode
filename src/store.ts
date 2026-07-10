@@ -8,11 +8,14 @@ export type ModalKind = null | 'interp' | 'ai-image' | 'ai-video' | 'ai-review-i
 // Shared orbit pivot (product center); updated when the asset loads.
 export const PIVOT = new THREE.Vector3(0, 0.9, 0);
 
+// Default optics (used at camera creation and by "Réinitialiser le focus").
+export const DEFAULT_APERTURE = 8.0;
+
 function makeCamera(name: string, pos: Vec3 = [4, 2.2, 5]): Camera {
   return {
     id: uid(), name,
     transform: { position: pos, rotation: eulerFromLookAt(pos, [0, 0.9, 0]) },
-    optics: { focalLength: 43, aperture: 2.0, motionBlurShutter: 180 },
+    optics: { focalLength: 35, aperture: DEFAULT_APERTURE, motionBlurShutter: 180, focusPoint: null },
     target: null, keyframes: [],
   };
 }
@@ -32,6 +35,7 @@ interface UI {
   gizmoDragging: boolean;
   gizmoMode: 'translate' | 'rotate';
   gizmoSpace: 'world' | 'local';
+  focusPicking: boolean;
 }
 
 interface StoreState {
@@ -48,8 +52,13 @@ interface StoreState {
   addCamera: () => void;
   setPlayhead: (t: number) => void;
   setPlaying: (p: boolean) => void;
+  setDuration: (d: number) => void;
+  setFps: (f: number) => void;
   setCanvas: (w: number, h: number) => void;
   setOptic: (k: 'focalLength' | 'aperture' | 'motionBlurShutter', v: number) => void;
+  setFocusPoint: (p: Vec3 | null) => void;
+  setFocusPicking: (b: boolean) => void;
+  resetFocus: () => void;
   setTarget: (t: Target | null) => void;
   selectKey: (id: string | null) => void;
   upsertKey: (ch: Channel, value: Vec3 | number, time: number, source?: KeySource, ease?: Ease) => void;
@@ -75,7 +84,7 @@ interface StoreState {
 export const useStore = create<StoreState>((set, get) => {
   const initial = makeCamera('Camera 01');
   const project: Project = {
-    cameras: [initial], activeCameraId: initial.id,
+    cameras: [initial], activeCameraId: initial.id, fps: 30,
     timeline: { duration: 5, playhead: 0, playing: false },
     canvas: { width: 1920, height: 1080 },
     luts: [], activeLutId: null,
@@ -85,7 +94,7 @@ export const useStore = create<StoreState>((set, get) => {
 
   return {
     project, rev: 0,
-    ui: { tool: 'select', selectedKeyId: null, poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local' },
+    ui: { tool: 'select', selectedKeyId: null, poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false },
     bump, active,
     setTool: t => { get().ui.tool = t; bump(); },
     toast: m => { get().ui.toast = m; bump(); setTimeout(() => { if (get().ui.toast === m) { get().ui.toast = ''; bump(); } }, 2600); },
@@ -93,8 +102,13 @@ export const useStore = create<StoreState>((set, get) => {
     addCamera: () => { const p = get().project; const c = makeCamera('Camera ' + String(p.cameras.length + 1).padStart(2, '0')); p.cameras.push(c); p.activeCameraId = c.id; bump(); },
     setPlayhead: t => { get().project.timeline.playhead = clamp(t, 0, get().project.timeline.duration); bump(); },
     setPlaying: p => { get().project.timeline.playing = p; bump(); },
+    setDuration: d => { const t = get().project.timeline; t.duration = clamp(Math.round(d * 1000) / 1000, 0.1, 120); if (t.playhead > t.duration) t.playhead = t.duration; bump(); },
+    setFps: f => { get().project.fps = clamp(Math.round(f), 1, 120); bump(); },
     setCanvas: (w, h) => { get().project.canvas = { width: w, height: h }; bump(); },
     setOptic: (k, v) => { active().optics[k] = v; bump(); },
+    setFocusPoint: p => { active().optics.focusPoint = p; bump(); },
+    setFocusPicking: b => { get().ui.focusPicking = b; bump(); },
+    resetFocus: () => { const o = active().optics; o.focusPoint = null; o.aperture = DEFAULT_APERTURE; get().ui.focusPicking = false; bump(); },
     setTarget: t => { const c = active(); c.target = t; if (t) c.keyframes = c.keyframes.filter(k => k.channel !== 'rotation'); bump(); },
     selectKey: id => { get().ui.selectedKeyId = id; bump(); },
     upsertKey: (ch, value, time, source = 'manual', ease = 'easeInOut') => { upsertKeyOn(active(), ch, value, time, source, ease); bump(); },

@@ -28,7 +28,8 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
     frustumCam.position.copy(rc.position); frustumCam.quaternion.copy(rc.quaternion);
     frustumCam.fov = rc.fov; frustumCam.aspect = S().project.canvas.width / S().project.canvas.height;
     frustumCam.updateProjectionMatrix(); frustumCam.updateMatrixWorld(true); helper.update();
-    if (bodyRef.current && !gizmoDrag.current) { bodyRef.current.position.copy(rc.position); bodyRef.current.quaternion.copy(rc.quaternion); }
+    // NB: the camera body is a child of PivotControls (positioned by `matrix` at the camera
+    // pose). It must stay at local origin — do NOT copy the world camera transform onto it.
   });
 
   // current camera pose (from state)
