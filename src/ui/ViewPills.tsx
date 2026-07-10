@@ -1,0 +1,40 @@
+import { S } from '../store';
+import { useRev } from './bits';
+
+const GlobeIcon = () => (
+  <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <circle cx="9" cy="9" r="6.5" />
+    <ellipse cx="9" cy="9" rx="2.8" ry="6.5" />
+    <line x1="2.6" y1="9" x2="15.4" y2="9" />
+  </svg>
+);
+const CubeIcon = () => (
+  <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round">
+    <path d="M9 2.2 L15 5.6 V12.4 L9 15.8 L3 12.4 V5.6 Z" />
+    <path d="M9 2.2 V9 M9 9 L15 5.6 M9 9 L3 5.6" />
+  </svg>
+);
+
+export default function ViewPills() {
+  useRev();
+  const ui = S().ui;
+  const world = ui.gizmoSpace === 'world';
+  return (
+    <div className="hud" style={{ top: 12, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', display: 'flex', gap: 8 }}>
+      <div className="seg" style={{ background: 'rgba(0,0,0,.5)' }}>
+        <button className={ui.viewMode === 'camera' ? 'sel' : ''} onClick={() => S().setViewMode('camera')} title="Vue à travers la caméra">◉ Caméra</button>
+        <button className={ui.viewMode === 'scene' ? 'sel' : ''} onClick={() => S().setViewMode('scene')} title="Vue éditeur libre : voir la caméra + la spline dans la scène">⬚ Scène</button>
+      </div>
+      {ui.viewMode === 'scene' && (
+        <div className="seg" style={{ background: 'rgba(0,0,0,.5)' }}>
+          <button onClick={() => S().setGizmoSpace(world ? 'local' : 'world')}
+            title={world ? 'Repère du gizmo : World — cliquer pour passer en Objet (R)' : 'Repère du gizmo : Objet — cliquer pour passer en World (R)'}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {world ? <GlobeIcon /> : <CubeIcon />}
+            <span>{world ? 'World' : 'Objet'}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
