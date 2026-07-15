@@ -26,6 +26,8 @@ export function keysOf(cam: Camera, ch: Channel): Keyframe[] {
 export function evalChannel(cam: Camera, ch: Channel, t: number): Vec3 | number {
   const ks = keysOf(cam, ch);
   const base = ch === 'focalLength' ? cam.optics.focalLength
+    : ch === 'aperture' ? cam.optics.aperture
+    : ch === 'motionBlur' ? cam.optics.motionBlurShutter
     : ch === 'poi' ? (cam.target?.type === 'point' && cam.target.point ? cam.target.point : ([0, 0.9, 0] as Vec3))
     : cam.transform[ch === 'position' ? 'position' : 'rotation'];
   if (ks.length === 0) return cloneVal(base);
@@ -35,7 +37,7 @@ export function evalChannel(cam: Camera, ch: Channel, t: number): Vec3 | number 
   const a = ks[i], b = ks[i + 1];
   const raw = (t - a.time) / (b.time - a.time || 1);
   const e = (EASES[b.ease] || EASES.linear)(clamp(raw, 0, 1));
-  if (ch === 'focalLength') return lerp(a.value as number, b.value as number, e);
+  if (ch === 'focalLength' || ch === 'aperture' || ch === 'motionBlur') return lerp(a.value as number, b.value as number, e);
   const av = a.value as Vec3, bv = b.value as Vec3;
   return [lerp(av[0], bv[0], e), lerp(av[1], bv[1], e), lerp(av[2], bv[2], e)];
 }
@@ -61,14 +63,16 @@ export function eulerFromLookAt(pos: Vec3, tp: Vec3): Vec3 {
   return [THREE.MathUtils.radToDeg(e.x), THREE.MathUtils.radToDeg(e.y), THREE.MathUtils.radToDeg(e.z)];
 }
 
-export interface Pose { position: Vec3; rotation: Vec3; focalLength: number; }
+export interface Pose { position: Vec3; rotation: Vec3; focalLength: number; aperture: number; motionBlur: number; }
 
 export function evaluate(cam: Camera, t: number): Pose {
   const position = evalChannel(cam, 'position', t) as Vec3;
   let rotation = evalChannel(cam, 'rotation', t) as Vec3;
   const focalLength = evalChannel(cam, 'focalLength', t) as number;
+  const aperture = evalChannel(cam, 'aperture', t) as number;
+  const motionBlur = evalChannel(cam, 'motionBlur', t) as number;
   if (cam.target) rotation = eulerFromLookAt(position, poiPoint(cam, t));
-  return { position, rotation, focalLength };
+  return { position, rotation, focalLength, aperture, motionBlur };
 }
 
 export const hasAnim = (cam: Camera) => cam.keyframes.length > 0;

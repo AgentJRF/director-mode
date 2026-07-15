@@ -53,8 +53,9 @@ export default function Outliner() {
             <div key={c.id} className={'ol-row' + (active ? ' sel' : '')} onClick={() => st.selectCamera(c.id)}>
               <span className="ol-ic"><CameraIcon /></span>
               <span className="nm">{c.name}</span>
-              {active && <span className={'ol-dot' + (st.ui.viewMode === 'scene' ? ' on' : '')}
-                title="Switch to Scene view" onClick={e => { e.stopPropagation(); st.setViewMode('scene'); }} />}
+              {active && <span className={'ol-dot' + (st.ui.viewMode === 'scene' ? ' scene' : '')}
+                title={st.ui.viewMode === 'camera' ? 'Camera POV — click for Scene view' : 'Scene view — click for Camera POV'}
+                onClick={e => { e.stopPropagation(); st.setViewMode(st.ui.viewMode === 'camera' ? 'scene' : 'camera'); }} />}
               <Eye id={'cam:' + c.id} />
             </div>
           );

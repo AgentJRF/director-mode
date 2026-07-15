@@ -4,27 +4,40 @@ import Outliner from './Outliner';
 import { evaluate, keysOf, EASE_LIST, EASES, round, poiPoint } from '../lib/eval';
 import { SCENE_OBJECTS } from '../lib/eval';
 
-function Vec3Row({ label, value, step = 0.1, disabled, onChange }:
-  { label: string; value: number[]; step?: number; disabled?: boolean; onChange: (i: number, v: number) => void }) {
+import type { Camera, Channel, Ease, Keyframe, Vec3 } from '../types';
+
+// Clickable keyframe marker: ◆ = key at playhead, dim ◆ = animated elsewhere, ◇ = no keys.
+// Click toggles a key at the playhead for this channel; disabled when the channel is locked.
+function KeyDot({ ch, value, disabled }: { ch: Channel; value: Vec3 | number; disabled?: boolean }) {
+  const st = S(); const cam = st.active(); const t = st.project.timeline.playhead;
+  const ks = keysOf(cam, ch);
+  const at = ks.some(k => Math.abs(k.time - t) < 0.02);
+  const cls = 'kf' + (disabled ? ' off' : at ? ' on' : ks.length ? ' anim' : '');
+  return <button type="button" className={cls} disabled={disabled}
+    title={disabled ? 'Locked' : at ? 'Remove keyframe at playhead' : 'Add keyframe at playhead'}
+    onClick={e => { e.stopPropagation(); st.toggleKeyAt(ch, value); }}>{at || ks.length ? '◆' : '◇'}</button>;
+}
+
+function Vec3Row({ label, value, step = 0.1, disabled, ch, onChange }:
+  { label: string; value: number[]; step?: number; disabled?: boolean; ch: Channel; onChange: (i: number, v: number) => void }) {
   return (
     <div className={'row vec-row' + (disabled ? ' locked' : '')}>
-      <label>{label}</label>
+      <span className="row-lead"><KeyDot ch={ch} value={value as Vec3} disabled={disabled} /><label>{label}</label></span>
       <div className="vec3">{['X', 'Y', 'Z'].map((lb, i) => (
         <input key={lb} type="number" step={step} value={round(value[i], 2)} onChange={e => onChange(i, parseFloat(e.target.value) || 0)} />
       ))}</div>
     </div>
   );
 }
-import type { Camera, Channel, Ease, Keyframe } from '../types';
 
-const CH_LABEL: Record<Channel, string> = { position: 'POS', rotation: 'ROT', focalLength: 'FOCAL', poi: 'POI' };
+const CH_LABEL: Record<Channel, string> = { position: 'POS', rotation: 'ROT', focalLength: 'FOCAL', poi: 'POI', aperture: 'APERTURE', motionBlur: 'SHUTTER' };
 
-function Slider({ label, value, min, max, step, unit, prefix, onChange, disabled }:
-  { label: string; value: number; min: number; max: number; step: number; unit?: string; prefix?: string; onChange: (v: number) => void; disabled?: boolean }) {
+function Slider({ label, value, min, max, step, unit, prefix, onChange, disabled, ch }:
+  { label: string; value: number; min: number; max: number; step: number; unit?: string; prefix?: string; onChange: (v: number) => void; disabled?: boolean; ch?: Channel }) {
   const disp = prefix ? prefix + value.toFixed(1) : round(value, step < 1 ? 1 : 0) + (unit ? ' ' + unit : '');
   return (
     <div className={'row' + (disabled ? ' locked' : '')}>
-      <label>{label}</label>
+      <span className="row-lead">{ch ? <KeyDot ch={ch} value={value} disabled={disabled} /> : <span className="kf-spacer" />}<label>{label}</label></span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
         <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} />
         <span className="val" style={{ minWidth: 52, textAlign: 'right' }}>{disp}</span>
@@ -74,7 +87,7 @@ function KeyInspector({ cam, k }: { cam: Camera; k: Keyframe }) {
 export default function Inspector() {
   useRev();
   const st = S(); const cam = st.active();
-  const selKey = cam.keyframes.find(k => k.id === st.ui.selectedKeyId);
+  const selKey = st.ui.selectedKeyIds.length === 1 ? cam.keyframes.find(k => k.id === st.ui.selectedKeyIds[0]) : undefined;
   const p = evaluate(cam, st.project.timeline.playhead);
   return (
     <div id="inspector">
@@ -84,18 +97,18 @@ export default function Inspector() {
 
       <div className="sect">
         <div className="sect-t">Transform</div>
-        <Vec3Row label="Position" value={p.position} onChange={(i, v) => st.editPose('position', i, v)} />
-        <Vec3Row label="Rotation" value={p.rotation} step={1} disabled={!!cam.target} onChange={(i, v) => st.editPose('rotation', i, v)} />
-        <Vec3Row label="POI" value={poiPoint(cam, st.project.timeline.playhead)} disabled={cam.target?.type === 'object'} onChange={(i, v) => st.editPoi(i, v)} />
+        <Vec3Row label="Position" ch="position" value={p.position} onChange={(i, v) => st.editPose('position', i, v)} />
+        <Vec3Row label="Rotation" ch="rotation" value={p.rotation} step={1} disabled={!!cam.target} onChange={(i, v) => st.editPose('rotation', i, v)} />
+        <Vec3Row label="POI" ch="poi" value={poiPoint(cam, st.project.timeline.playhead)} disabled={cam.target?.type === 'object'} onChange={(i, v) => st.editPoi(i, v)} />
       </div>
 
       <div className="sect">
         <div className="sect-t">Optics</div>
-        <Slider label="Focal" value={cam.optics.focalLength} min={14} max={200} step={1} unit="mm" onChange={v => st.setOptic('focalLength', v)} />
-        <Slider label="Aperture" value={cam.optics.aperture} min={1.4} max={16} step={0.1} prefix="f/" onChange={v => st.setOptic('aperture', v)} />
-        <Slider label="Motion blur" value={cam.optics.motionBlurShutter} min={0} max={360} step={1} unit="°" onChange={v => st.setOptic('motionBlurShutter', v)} />
+        <Slider label="Focal" ch="focalLength" value={p.focalLength} min={14} max={200} step={1} unit="mm" onChange={v => st.setOptic('focalLength', v)} />
+        <Slider label="Aperture" ch="aperture" value={p.aperture} min={1.4} max={16} step={0.1} prefix="f/" onChange={v => st.setOptic('aperture', v)} />
+        <Slider label="Motion blur" ch="motionBlur" value={p.motionBlur} min={0} max={360} step={1} unit="°" onChange={v => st.setOptic('motionBlurShutter', v)} />
         <div className="row">
-          <label>Focus</label>
+          <span className="row-lead"><span className="kf-spacer" /><label>Focus</label></span>
           <span className="val">{cam.optics.focusPoint ? 'Picked' : 'General'}</span>
         </div>
         <div className="chip-row">
@@ -109,9 +122,13 @@ export default function Inspector() {
 
       <div className="sect">
         <div className="sect-t">Target{cam.target && <span className="st" style={{ color: 'var(--blue)' }}>active</span>}</div>
-        <button className={'btn-sm btn-full' + (st.ui.tool === 'target' ? ' amber' : '')}
+        <div className={'cam-item' + (cam.target?.type === 'point' ? ' sel' : '')} onClick={() => st.setTarget({ type: 'point', point: [0, 0.9, 0] })}>
+          <span style={{ fontSize: 13 }}>✛</span><span className="nm">Free point</span>
+          <span className="st" style={{ color: cam.target?.type === 'point' ? 'var(--blue)' : 'var(--ink-3)' }}>{cam.target?.type === 'point' ? 'target' : 'default'}</span>
+        </div>
+        <button className={'btn-sm btn-full' + (st.ui.tool === 'target' ? ' amber' : '')} style={{ marginTop: 6 }}
           onClick={() => st.setTool(st.ui.tool === 'target' ? 'select' : 'target')}>
-          ◎ {st.ui.tool === 'target' ? 'Picking…' : 'Pick in view'}
+          ◎ {st.ui.tool === 'target' ? 'Picking… click an object' : 'Pick in view'}
         </button>
         <div className="sect-t" style={{ marginTop: 12 }}>Scene objects</div>
         {SCENE_OBJECTS.map(o => {
@@ -122,9 +139,6 @@ export default function Inspector() {
             </div>
           );
         })}
-        <div className={'cam-item' + (cam.target?.type === 'point' ? ' sel' : '')} onClick={() => st.setTarget({ type: 'point', point: [0, 0.9, 0] })}>
-          <span style={{ fontSize: 13 }}>✛</span><span className="nm">Free point</span>{cam.target?.type === 'point' && <span className="st" style={{ color: 'var(--blue)' }}>target</span>}
-        </div>
         {cam.target && (
           <>
             <div className="lock-note">⚿ Rotation owned by the target — manual editing locked.</div>

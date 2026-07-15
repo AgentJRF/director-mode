@@ -86,7 +86,12 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .lock-note{font-size:10px;color:var(--amber);margin-top:6px;display:flex;gap:5px;align-items:center}
 .vec3{display:flex;gap:5px;flex:1;min-width:0}
 .vec3 input{flex:1;min-width:0;width:auto;text-align:center}
-.vec-row label{flex:0 0 64px}
+.row-lead{display:flex;align-items:center;gap:6px;flex:0 0 92px}
+.kf{width:16px;flex:0 0 16px;text-align:center;font-size:11px;line-height:1;color:var(--ink-3);padding:0}
+.kf.anim{color:var(--amber-dim)}
+.kf.on{color:var(--amber)}
+.kf.off,.kf:disabled{color:var(--line-2);cursor:not-allowed}
+.kf-spacer{width:16px;flex:0 0 16px}
 /* number boxes are tight — reclaim the space the spinner arrows take */
 .vec3 input[type=number]{-moz-appearance:textfield}
 .vec3 input[type=number]::-webkit-inner-spin-button,.vec3 input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
@@ -112,9 +117,10 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .ol-row .ol-ic{width:16px;display:flex;align-items:center;justify-content:center;color:var(--ink-2);flex:0 0 16px}
 .ol-row.sel .ol-ic{color:var(--blue)}
 .ol-row .nm{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ol-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);flex:0 0 8px;cursor:pointer;transition:box-shadow .12s}
+.ol-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);flex:0 0 8px;cursor:pointer;transition:background .12s,box-shadow .12s}
+.ol-dot.scene{background:var(--ink-3)}
 .ol-dot:hover{box-shadow:0 0 0 3px rgba(41,182,246,.28)}
-.ol-dot.on{box-shadow:0 0 0 3px rgba(41,182,246,.45)}
+.ol-dot.scene:hover{box-shadow:0 0 0 3px rgba(120,130,140,.30)}
 .ol-eye{display:flex;align-items:center;justify-content:center;width:18px;flex:0 0 18px;cursor:pointer;color:var(--ink-3);opacity:.6}
 .ol-eye:hover{opacity:1;color:var(--ink)}
 
@@ -127,7 +133,7 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .time-read b{color:var(--ink)}
 .tl-spacer{flex:1}
 .tl-wrap{flex:1;position:relative;min-height:0;overflow:hidden}
-#tl-svg{display:block;cursor:crosshair}
+#tl-svg{display:block;cursor:default}
 .tl-body{display:flex;min-height:0}
 .tl-gutter{flex:0 0 52px;position:relative;background:var(--panel);border-right:1px solid var(--line)}
 .tl-gutter .gl{position:absolute;left:8px;font-family:var(--mono);font-size:9px;color:#7a828a;letter-spacing:.5px}

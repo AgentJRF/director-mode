@@ -44,7 +44,7 @@ export default function App() {
       if (map[e.key]) st.setTool(map[e.key]);
       if (e.key === 'g') st.setTool(st.ui.tool === 'generators' ? 'select' : 'generators');
       if (e.key === 'r') st.setGizmoSpace(st.ui.gizmoSpace === 'world' ? 'local' : 'world');
-      if ((e.key === 'Delete' || e.key === 'Backspace') && st.ui.selectedKeyId) st.removeKey(st.ui.selectedKeyId);
+      if ((e.key === 'Delete' || e.key === 'Backspace') && st.ui.selectedKeyIds.length) st.removeKeys(st.ui.selectedKeyIds);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

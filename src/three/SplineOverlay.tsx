@@ -28,7 +28,7 @@ export default function SplineOverlay() {
         let d = ''; const N = 48;
         for (let i = 0; i <= N; i++) { const t = lerp(pk[0].time, pk[pk.length - 1].time, i / N); const s = project(evalChannel(c, 'position', t) as Vec3); d += (i ? 'L' : 'M') + s.x.toFixed(1) + ',' + s.y.toFixed(1) + ' '; }
         out += `<path d="${d}" fill="none" stroke="#f2a33c" stroke-width="1.5" stroke-opacity="0.7"/>`;
-        pk.forEach(k => { const s = project(k.value as Vec3); if (s.z < 1) { const sel = k.id === st.ui.selectedKeyId; out += `<circle class="handle" data-key="${k.id}" cx="${s.x}" cy="${s.y}" r="6" fill="${sel ? '#fff' : '#f2a33c'}" stroke="#000" stroke-opacity="0.5"/>`; } });
+        pk.forEach(k => { const s = project(k.value as Vec3); if (s.z < 1) { const sel = st.ui.selectedKeyIds.includes(k.id); out += `<circle class="handle" data-key="${k.id}" cx="${s.x}" cy="${s.y}" r="6" fill="${sel ? '#fff' : '#f2a33c'}" stroke="#000" stroke-opacity="0.5"/>`; } });
       }
       if (c.target && c.target.type === 'point') { const s = project(poiPoint(c, st.project.timeline.playhead)); if (s.z < 1) out += `<g><circle cx="${s.x}" cy="${s.y}" r="10" fill="none" stroke="#5b9dd9" stroke-width="1.5"/><line x1="${s.x - 14}" y1="${s.y}" x2="${s.x + 14}" y2="${s.y}" stroke="#5b9dd9"/><line x1="${s.x}" y1="${s.y - 14}" x2="${s.x}" y2="${s.y + 14}" stroke="#5b9dd9"/></g>`; }
       svg.innerHTML = out;

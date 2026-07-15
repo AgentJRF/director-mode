@@ -25,7 +25,7 @@ export interface Pose { position: Vec3; rotation: Vec3; focal: number; }
 export type ViewMode = 'camera' | 'scene';
 interface UI {
   tool: Tool;
-  selectedKeyId: string | null;
+  selectedKeyIds: string[];
   poseA: Pose | null;
   poseB: Pose | null;
   modal: ModalKind;
@@ -57,6 +57,7 @@ interface StoreState {
   setFps: (f: number) => void;
   setCanvas: (w: number, h: number) => void;
   setOptic: (k: 'focalLength' | 'aperture' | 'motionBlurShutter', v: number) => void;
+  toggleKeyAt: (ch: Channel, value: Vec3 | number) => void;
   editPose: (channel: 'position' | 'rotation', i: number, value: number) => void;
   editPoi: (i: number, value: number) => void;
   setFocusPoint: (p: Vec3 | null) => void;
@@ -65,6 +66,8 @@ interface StoreState {
   resetFocus: () => void;
   setTarget: (t: Target | null) => void;
   selectKey: (id: string | null) => void;
+  setSelectedKeys: (ids: string[]) => void;
+  removeKeys: (ids: string[]) => void;
   upsertKey: (ch: Channel, value: Vec3 | number, time: number, source?: KeySource, ease?: Ease) => void;
   removeKey: (id: string) => void;
   clearChannel: (ch: Channel) => void;
@@ -98,18 +101,35 @@ export const useStore = create<StoreState>((set, get) => {
 
   return {
     project, rev: 0,
-    ui: { tool: 'select', selectedKeyId: null, poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, hidden: {} },
+    ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, hidden: {} },
     bump, active,
     setTool: t => { get().ui.tool = t; bump(); },
     toast: m => { get().ui.toast = m; bump(); setTimeout(() => { if (get().ui.toast === m) { get().ui.toast = ''; bump(); } }, 2600); },
-    selectCamera: id => { get().project.activeCameraId = id; get().ui.selectedKeyId = null; bump(); },
+    selectCamera: id => { get().project.activeCameraId = id; get().ui.selectedKeyIds = []; bump(); },
     addCamera: () => { const p = get().project; const c = makeCamera('Camera ' + String(p.cameras.length + 1).padStart(2, '0')); p.cameras.push(c); p.activeCameraId = c.id; bump(); },
     setPlayhead: t => { get().project.timeline.playhead = clamp(t, 0, get().project.timeline.duration); bump(); },
     setPlaying: p => { get().project.timeline.playing = p; bump(); },
     setDuration: d => { const t = get().project.timeline; t.duration = clamp(Math.round(d * 1000) / 1000, 0.1, 120); if (t.playhead > t.duration) t.playhead = t.duration; bump(); },
     setFps: f => { get().project.fps = clamp(Math.round(f), 1, 120); bump(); },
     setCanvas: (w, h) => { get().project.canvas = { width: w, height: h }; bump(); },
-    setOptic: (k, v) => { active().optics[k] = v; bump(); },
+    setOptic: (k, v) => {
+      const cam = active(); const t = get().project.timeline.playhead;
+      const ch: Channel = k === 'focalLength' ? 'focalLength' : k === 'aperture' ? 'aperture' : 'motionBlur';
+      if (keysOf(cam, ch).length) upsertKeyOn(cam, ch, v, t, 'manual'); // animated → key at playhead
+      else cam.optics[k] = v;
+      bump();
+    },
+    toggleKeyAt: (ch, value) => {
+      const cam = active(); const t = get().project.timeline.playhead;
+      const ex = keysOf(cam, ch).find(k => Math.abs(k.time - t) < 0.02);
+      if (ex) { cam.keyframes = cam.keyframes.filter(k => k.id !== ex.id); get().ui.selectedKeyIds = get().ui.selectedKeyIds.filter(id => id !== ex.id); bump(); return; }
+      if (ch === 'poi') { // POI must own the aim → ensure a point target (rotation becomes derived)
+        if (cam.target?.type === 'object') return;
+        if (!cam.target || cam.target.type !== 'point') { cam.target = { type: 'point', point: value as Vec3 }; cam.keyframes = cam.keyframes.filter(k => k.channel !== 'rotation'); }
+      }
+      if (ch === 'rotation' && cam.target) return; // rotation owned by target
+      upsertKeyOn(cam, ch, value, t, 'manual'); bump();
+    },
     editPose: (channel, i, value) => {
       const cam = active(); const t = get().project.timeline.playhead;
       if (channel === 'rotation' && cam.target) return; // rotation owned by target
@@ -138,9 +158,11 @@ export const useStore = create<StoreState>((set, get) => {
       if (!t || t.type === 'object') c.keyframes = c.keyframes.filter(k => k.channel !== 'poi'); // POI locked/derived here
       bump();
     },
-    selectKey: id => { get().ui.selectedKeyId = id; bump(); },
+    selectKey: id => { get().ui.selectedKeyIds = id ? [id] : []; bump(); },
+    setSelectedKeys: ids => { get().ui.selectedKeyIds = ids; bump(); },
+    removeKeys: ids => { const c = active(); const set = new Set(ids); c.keyframes = c.keyframes.filter(k => !set.has(k.id)); get().ui.selectedKeyIds = get().ui.selectedKeyIds.filter(id => !set.has(id)); bump(); },
     upsertKey: (ch, value, time, source = 'manual', ease = 'easeInOut') => { upsertKeyOn(active(), ch, value, time, source, ease); bump(); },
-    removeKey: id => { const c = active(); c.keyframes = c.keyframes.filter(k => k.id !== id); if (get().ui.selectedKeyId === id) get().ui.selectedKeyId = null; bump(); },
+    removeKey: id => { const c = active(); c.keyframes = c.keyframes.filter(k => k.id !== id); get().ui.selectedKeyIds = get().ui.selectedKeyIds.filter(x => x !== id); bump(); },
     clearChannel: ch => { const c = active(); c.keyframes = c.keyframes.filter(k => k.channel !== ch); bump(); },
     clearAnim: () => { active().keyframes = []; bump(); },
     setKeyTime: (id, t) => { const k = active().keyframes.find(k => k.id === id); if (k) k.time = clamp(t, 0, get().project.timeline.duration); bump(); },

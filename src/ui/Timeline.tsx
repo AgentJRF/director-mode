@@ -18,7 +18,8 @@ export default function Timeline() {
   const [zoom, setZoom] = useState(1);
   const [durUnit, setDurUnit] = useState<'s' | 'f'>('s');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const drag = useRef<{ mode: 'scrub' | 'key'; keyId?: string } | null>(null);
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const drag = useRef<{ mode: 'scrub' | 'key' | 'marquee'; keyId?: string; x0?: number; y0?: number; moved?: boolean } | null>(null);
 
   useLayoutEffect(() => {
     const el = scrollRef.current!; const ro = new ResizeObserver(() => setViewW(el.clientWidth));
@@ -40,7 +41,6 @@ export default function Timeline() {
     { label: 'Point of Interest', ch: 'poi', lock: c.target?.type === 'object' },
     { label: 'Position', ch: 'position' },
     { label: 'Orientation', ch: 'rotation', lock: !!c.target },
-    { label: 'Focal length', ch: 'focalLength' },
   ]);
 
   let yCur = TOP_H + 8;
@@ -54,6 +54,10 @@ export default function Timeline() {
   });
   const H = yCur + 4;
 
+  // screen positions of every visible (expanded) keyframe diamond — used for marquee hit-testing
+  const keyPositions: { id: string; x: number; y: number }[] = [];
+  layout.forEach(({ c, rows }) => rows.forEach(({ def, ry }) => keysOf(c, def.ch).forEach(k => keyPositions.push({ id: k.id, x: x(k.time), y: ry + ROW_H / 2 }))));
+
   const pxPerFrame = pxPerSec / fps;
   const minorStep = niceFrameStep(pxPerFrame, fps, 6);
   const labelStep = niceFrameStep(pxPerFrame, fps, 70);
@@ -63,27 +67,38 @@ export default function Timeline() {
   const ticks: { f: number; label: boolean }[] = [];
   for (let f = Math.floor(fFrom / minorStep) * minorStep; f <= fTo; f += minorStep) { if (f >= 0) ticks.push({ f, label: f % labelStep === 0 }); }
 
-  const svgPx = (e: React.PointerEvent) => e.clientX - (e.currentTarget as SVGElement).getBoundingClientRect().left;
+  const svgPt = (e: React.PointerEvent) => { const r = (e.currentTarget as SVGElement).getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   const onDown = (e: React.PointerEvent) => {
     const el = e.target as SVGElement;
     const toggle = el.getAttribute('data-toggle');
     if (toggle) { setExpanded(x0 => ({ ...x0, [toggle]: !x0[toggle] })); return; }
     const keyId = el.getAttribute('data-key'); const camId = el.getAttribute('data-cam');
-    (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
+    try { (e.currentTarget as SVGElement).setPointerCapture(e.pointerId); } catch { /* capture is best-effort */ }
     if (camId && camId !== proj.activeCameraId) S().selectCamera(camId);
+    const { x: px, y: py } = svgPt(e);
     if (keyId) { drag.current = { mode: 'key', keyId }; S().selectKey(keyId); }
-    else { drag.current = { mode: 'scrub' }; S().setPlayhead(snap(timeFromX(svgPx(e)))); }
+    else if (py < TOP_H) { drag.current = { mode: 'scrub' }; S().setPlayhead(snap(timeFromX(px))); } // ruler → scrub
+    else { drag.current = { mode: 'marquee', x0: px, y0: py, moved: false }; setMarquee({ x0: px, y0: py, x1: px, y1: py }); } // body → drag-select
   };
   const onMove = (e: React.PointerEvent) => {
-    if (!drag.current) return; const t = snap(timeFromX(svgPx(e)));
-    if (drag.current.mode === 'scrub') S().setPlayhead(t);
-    else if (drag.current.keyId) S().setKeyTime(drag.current.keyId, t);
+    if (!drag.current) return; const { x: px, y: py } = svgPt(e);
+    if (drag.current.mode === 'scrub') S().setPlayhead(snap(timeFromX(px)));
+    else if (drag.current.mode === 'key' && drag.current.keyId) S().setKeyTime(drag.current.keyId, snap(timeFromX(px)));
+    else if (drag.current.mode === 'marquee') {
+      drag.current.moved = true;
+      const box = { x0: drag.current.x0!, y0: drag.current.y0!, x1: px, y1: py }; setMarquee(box);
+      const lx = Math.min(box.x0, box.x1), hx = Math.max(box.x0, box.x1), ly = Math.min(box.y0, box.y1), hy = Math.max(box.y0, box.y1);
+      S().setSelectedKeys(keyPositions.filter(k => k.x >= lx && k.x <= hx && k.y >= ly && k.y <= hy).map(k => k.id));
+    }
   };
-  const onUp = () => { drag.current = null; };
+  const onUp = () => {
+    if (drag.current?.mode === 'marquee' && !drag.current.moved) S().selectKey(null); // click on empty area clears selection
+    drag.current = null; setMarquee(null);
+  };
   const onDbl = (e: React.MouseEvent) => { const id = (e.target as SVGElement).getAttribute('data-key'); if (id) S().removeKey(id); };
 
   const diamond = (k: Keyframe, cx: number, cy: number, camId: string, half: number) => {
-    const sel = k.id === st.ui.selectedKeyId;
+    const sel = st.ui.selectedKeyIds.includes(k.id);
     return <rect key={k.id} data-key={k.id} data-cam={camId} x={cx - half} y={cy - half} width={half * 2} height={half * 2}
       transform={`rotate(45 ${cx} ${cy})`} fill="#f5c400" stroke={sel ? '#ffffff' : '#8a6d00'} strokeWidth={sel ? 1.6 : 1} style={{ cursor: 'grab' }} />;
   };
@@ -100,9 +115,9 @@ export default function Timeline() {
           <button className={'tbtn-round' + (playing ? '' : ' play')} title="Play/Pause"
             onClick={() => { if (tl.playhead >= dur) S().setPlayhead(0); S().setPlaying(!playing); }}>{playing ? '❚❚' : '▶'}</button>
           <button className="tbtn-round" title="Add key at playhead" onClick={keyAtPlayhead}>◆</button>
-          <button className="tbtn-round" title="Delete selected key (Del)"
-            style={{ opacity: st.ui.selectedKeyId ? 1 : 0.4 }}
-            onClick={() => { if (st.ui.selectedKeyId) S().removeKey(st.ui.selectedKeyId); }}>🗑</button>
+          <button className="tbtn-round" title="Delete selected keys (Del)"
+            style={{ opacity: st.ui.selectedKeyIds.length ? 1 : 0.4 }}
+            onClick={() => { if (st.ui.selectedKeyIds.length) S().removeKeys(st.ui.selectedKeyIds); }}>🗑</button>
         </div>
         <span className="tc mono" title="Timecode H;MM;SS;FF">{toTimecode(tl.playhead, fps)}</span>
         <div className="tl-spacer" />
@@ -166,6 +181,10 @@ export default function Timeline() {
               </g>
             );
           })}
+
+          {marquee && <rect x={Math.min(marquee.x0, marquee.x1)} y={Math.min(marquee.y0, marquee.y1)}
+            width={Math.abs(marquee.x1 - marquee.x0)} height={Math.abs(marquee.y1 - marquee.y0)}
+            fill="rgba(41,182,246,0.12)" stroke={PLAYHEAD} strokeWidth={1} strokeDasharray="3 2" pointerEvents="none" />}
 
           <line x1={phx} y1={TOP_H - 4} x2={phx} y2={H} stroke={PLAYHEAD} strokeWidth={1.5} />
           <path d={`M${phx - 8},${TOP_H - 12} L${phx + 8},${TOP_H - 12} L${phx},${TOP_H - 1} Z`} fill={PLAYHEAD} />

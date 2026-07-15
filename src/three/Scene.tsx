@@ -11,7 +11,7 @@ import PoiControl from './PoiControl';
 import EditorFly from './EditorFly';
 import Product from './Product';
 import { useStore, PIVOT, S } from '../store';
-import { clamp } from '../lib/eval';
+import { clamp, evalChannel } from '../lib/eval';
 
 function Lights() {
   useStore(s => s.rev); const h = S().ui.hidden;
@@ -43,7 +43,7 @@ function Floor() {
 function DoF() {
   useStore(s => s.rev);
   const cam = S().active();
-  const ap = cam.optics.aperture;
+  const ap = evalChannel(cam, 'aperture', S().project.timeline.playhead) as number;
   const fp = cam.optics.focusPoint;
   // Aperture always drives blur strength + depth of the sharp slab (world units).
   // "General" focuses on the product centre; "Picked" focuses on the picked point.

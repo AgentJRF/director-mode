@@ -102,7 +102,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
       </PivotControls>
       {pts.length >= 2 && <Line points={pts} color="#f2a33c" lineWidth={2} transparent opacity={0.9} />}
       {pk.map(k => {
-        const sel = k.id === st.ui.selectedKeyId;
+        const sel = st.ui.selectedKeyIds.includes(k.id);
         return (
           <mesh key={k.id} position={k.value as Vec3}
             onPointerDown={e => { e.stopPropagation(); (e.nativeEvent as PointerEvent).stopImmediatePropagation?.(); dragId.current = k.id; S().selectKey(k.id); S().setGizmoDragging(true); }}>

@@ -15,8 +15,8 @@ export default function HUD() {
     <>
       <div className="hud tl"><div className={badgeCls}><span className="led" /><span>{badgeTxt}</span></div></div>
       <div className="hud tr">
-        <div className="hud-optics">{g(p.focalLength)}&nbsp;mm · f/{cam.optics.aperture.toFixed(1)}</div>
-        <div className="hud-sub">shutter {cam.optics.motionBlurShutter}° · {cam.name}</div>
+        <div className="hud-optics">{g(p.focalLength)}&nbsp;mm · f/{p.aperture.toFixed(1)}</div>
+        <div className="hud-sub">shutter {g(p.motionBlur)}° · {cam.name}</div>
       </div>
       <div className="hud bl">
         <span className="ratio-pill" onClick={() => S().setModal('export')}>

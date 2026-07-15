@@ -54,15 +54,15 @@ export default function CameraController({ renderCamRef }: { renderCamRef: RefOb
     const st = S(); const tl = st.project.timeline; const cam = st.active();
     if (tl.playing) { let t = tl.playhead + dt; if (t >= tl.duration) { t = tl.duration; st.setPlaying(false); } tl.playhead = t; st.bump(); }
     const c = renderCamRef.current; if (!c) return;
+    const p = evaluate(cam, tl.playhead);
     if (dragging.current && pending.current && st.ui.viewMode === 'camera') {
       c.position.set(...pending.current); c.lookAt(PIVOT);
     } else {
-      const p = evaluate(cam, tl.playhead);
       c.position.set(...p.position);
       const e = p.rotation.map(THREE.MathUtils.degToRad);
       c.rotation.set(e[0], e[1], e[2], 'YXZ');
     }
-    c.filmGauge = 36; c.setFocalLength(cam.optics.focalLength);
+    c.filmGauge = 36; c.setFocalLength(p.focalLength);
     c.aspect = st.project.canvas.width / st.project.canvas.height;
     c.updateProjectionMatrix(); c.updateMatrixWorld(true);
     R3.cam = c;
