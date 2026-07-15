@@ -109,7 +109,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
           </mesh>
         );
       })}
-      {cam.target && (
+      {cam.target?.type === 'point' && (
         <mesh position={targetPoint(cam.target)}>
           <sphereGeometry args={[0.08, 16, 16]} /><meshBasicMaterial color="#5b9dd9" />
         </mesh>

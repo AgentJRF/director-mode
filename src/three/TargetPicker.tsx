@@ -26,6 +26,7 @@ export default function TargetPicker() {
       while (o) { if (o.userData && o.userData.objectId) { objectId = o.userData.objectId; break; } o = o.parent; }
       if (objectId) { S().setTarget({ type: 'object', objectId }); S().toast('Target: ' + objectId); }
       else { const p = hits[0].point; S().setTarget({ type: 'point', point: [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)] as Vec3 }); S().toast('Target: free point'); }
+      S().setTool('select'); // one-shot: leave picking mode after a pick
     };
     dom.style.cursor = 'crosshair';
     dom.addEventListener('pointerdown', down);
