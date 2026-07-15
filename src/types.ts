@@ -1,6 +1,6 @@
 // Director mode — data model (from the brief)
 export type Vec3 = [number, number, number];
-export type Channel = 'position' | 'rotation' | 'focalLength';
+export type Channel = 'position' | 'rotation' | 'focalLength' | 'poi';
 export type Ease = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'easeInOutStrong';
 export type KeySource = 'manual' | 'preset' | 'interpolation' | 'aiVideo';
 

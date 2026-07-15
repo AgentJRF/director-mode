@@ -84,8 +84,12 @@ select{width:auto;font-family:var(--sans)}
 input:focus,select:focus{outline:none;border-color:var(--focus)}
 .locked{opacity:.42;pointer-events:none}
 .lock-note{font-size:10px;color:var(--amber);margin-top:6px;display:flex;gap:5px;align-items:center}
-.vec3{display:flex;gap:5px}
-.vec3 input{width:100%}
+.vec3{display:flex;gap:5px;flex:1;min-width:0}
+.vec3 input{flex:1;min-width:0;width:auto;text-align:center}
+.vec-row label{flex:0 0 64px}
+/* number boxes are tight — reclaim the space the spinner arrows take */
+.vec3 input[type=number]{-moz-appearance:textfield}
+.vec3 input[type=number]::-webkit-inner-spin-button,.vec3 input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .btn-sm{background:var(--panel-2);border:1px solid var(--line-2);border-radius:5px;padding:5px 9px;font-size:11px;color:var(--ink-2)}
 .btn-sm:hover{color:var(--ink);border-color:#3d444a}
 .btn-sm.amber{color:var(--amber);border-color:var(--amber-dim)}
@@ -108,7 +112,9 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .ol-row .ol-ic{width:16px;display:flex;align-items:center;justify-content:center;color:var(--ink-2);flex:0 0 16px}
 .ol-row.sel .ol-ic{color:var(--blue)}
 .ol-row .nm{flex:1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ol-dot{width:7px;height:7px;border-radius:50%;background:var(--blue);flex:0 0 7px}
+.ol-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);flex:0 0 8px;cursor:pointer;transition:box-shadow .12s}
+.ol-dot:hover{box-shadow:0 0 0 3px rgba(41,182,246,.28)}
+.ol-dot.on{box-shadow:0 0 0 3px rgba(41,182,246,.45)}
 .ol-eye{display:flex;align-items:center;justify-content:center;width:18px;flex:0 0 18px;cursor:pointer;color:var(--ink-3);opacity:.6}
 .ol-eye:hover{opacity:1;color:var(--ink)}
 
@@ -135,6 +141,7 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .tl-field select,.tl-field input{padding:3px 6px}
 .tl-zoom{display:flex;align-items:center;gap:8px;padding:5px 12px;border-top:1px solid var(--line)}
 .tl-zoom .mtn{color:var(--ink-3)}
+.tl-zoom .tl-fit{padding:3px 7px;font-size:10px}
 .tl-zoom input[type=range]{width:130px;flex:0 0 auto}
 
 .scrim{position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(2px)}
@@ -177,3 +184,5 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .poi-handle{width:14px;height:14px;border:1.5px solid #29b6f6;border-radius:50%;position:relative;cursor:move;background:rgba(41,182,246,.14);box-shadow:0 0 0 1px rgba(0,0,0,.5)}
 .poi-handle::before{content:"";position:absolute;left:50%;top:2px;bottom:2px;width:1.5px;background:#29b6f6;transform:translateX(-50%)}
 .poi-handle::after{content:"";position:absolute;top:50%;left:2px;right:2px;height:1.5px;background:#29b6f6;transform:translateY(-50%)}
+.poi-handle.locked{cursor:not-allowed;opacity:.55;border-color:#6b747c;background:rgba(107,116,124,.14)}
+.poi-handle.locked::before,.poi-handle.locked::after{background:#6b747c}

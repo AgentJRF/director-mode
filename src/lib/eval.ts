@@ -25,7 +25,9 @@ export function keysOf(cam: Camera, ch: Channel): Keyframe[] {
 
 export function evalChannel(cam: Camera, ch: Channel, t: number): Vec3 | number {
   const ks = keysOf(cam, ch);
-  const base = ch === 'focalLength' ? cam.optics.focalLength : cam.transform[ch === 'position' ? 'position' : 'rotation'];
+  const base = ch === 'focalLength' ? cam.optics.focalLength
+    : ch === 'poi' ? (cam.target?.type === 'point' && cam.target.point ? cam.target.point : ([0, 0.9, 0] as Vec3))
+    : cam.transform[ch === 'position' ? 'position' : 'rotation'];
   if (ks.length === 0) return cloneVal(base);
   if (t <= ks[0].time) return cloneVal(ks[0].value);
   if (t >= ks[ks.length - 1].time) return cloneVal(ks[ks.length - 1].value);
@@ -65,15 +67,21 @@ export function evaluate(cam: Camera, t: number): Pose {
   const position = evalChannel(cam, 'position', t) as Vec3;
   let rotation = evalChannel(cam, 'rotation', t) as Vec3;
   const focalLength = evalChannel(cam, 'focalLength', t) as number;
-  if (cam.target) rotation = eulerFromLookAt(position, targetPoint(cam.target));
+  if (cam.target) rotation = eulerFromLookAt(position, poiPoint(cam, t));
   return { position, rotation, focalLength };
 }
 
 export const hasAnim = (cam: Camera) => cam.keyframes.length > 0;
 
-// Point of Interest: the target point, or (free camera) a point along the view direction.
+// Point of Interest: the look-at point at time t.
+//  - object target  → object centre (locked, not animatable)
+//  - point target   → interpolated POI keyframes, else the static target.point
+//  - free camera     → a point derived forward along the (animated) view direction
 export function poiPoint(cam: Camera, t: number): Vec3 {
-  if (cam.target) return targetPoint(cam.target);
+  if (cam.target?.type === 'object') return targetPoint(cam.target);
+  const ks = keysOf(cam, 'poi');
+  if (ks.length) return evalChannel(cam, 'poi', t) as Vec3;
+  if (cam.target?.type === 'point' && cam.target.point) return cam.target.point;
   const p = evaluate(cam, t);
   const pos = new THREE.Vector3(...p.position);
   const e = new THREE.Euler(THREE.MathUtils.degToRad(p.rotation[0]), THREE.MathUtils.degToRad(p.rotation[1]), THREE.MathUtils.degToRad(p.rotation[2]), 'YXZ');

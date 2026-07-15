@@ -1,4 +1,4 @@
-import { S, hasAnim, DEFAULT_APERTURE } from '../store';
+import { S, DEFAULT_APERTURE } from '../store';
 import { useRev } from './bits';
 import Outliner from './Outliner';
 import { evaluate, keysOf, EASE_LIST, EASES, round, poiPoint } from '../lib/eval';
@@ -7,7 +7,7 @@ import { SCENE_OBJECTS } from '../lib/eval';
 function Vec3Row({ label, value, step = 0.1, disabled, onChange }:
   { label: string; value: number[]; step?: number; disabled?: boolean; onChange: (i: number, v: number) => void }) {
   return (
-    <div className={'row' + (disabled ? ' locked' : '')}>
+    <div className={'row vec-row' + (disabled ? ' locked' : '')}>
       <label>{label}</label>
       <div className="vec3">{['X', 'Y', 'Z'].map((lb, i) => (
         <input key={lb} type="number" step={step} value={round(value[i], 2)} onChange={e => onChange(i, parseFloat(e.target.value) || 0)} />
@@ -17,7 +17,7 @@ function Vec3Row({ label, value, step = 0.1, disabled, onChange }:
 }
 import type { Camera, Channel, Ease, Keyframe } from '../types';
 
-const CH_LABEL: Record<Channel, string> = { position: 'POS', rotation: 'ROT', focalLength: 'FOCAL' };
+const CH_LABEL: Record<Channel, string> = { position: 'POS', rotation: 'ROT', focalLength: 'FOCAL', poi: 'POI' };
 
 function Slider({ label, value, min, max, step, unit, prefix, onChange, disabled }:
   { label: string; value: number; min: number; max: number; step: number; unit?: string; prefix?: string; onChange: (v: number) => void; disabled?: boolean }) {
@@ -56,7 +56,7 @@ function KeyInspector({ cam, k }: { cam: Camera; k: Keyframe }) {
         <div className="row"><label>Focal</label>
           <input type="number" step="1" value={round(k.value as number, 0)} onChange={e => st.setKeyFocal(k.id, parseFloat(e.target.value) || 0)} /></div>
       ) : (
-        <div className="row"><label>{k.channel === 'position' ? 'Position' : 'Rotation'}</label>
+        <div className="row"><label>{k.channel === 'position' ? 'Position' : k.channel === 'poi' ? 'Point of interest' : 'Rotation'}</label>
           <div className="vec3">{['X', 'Y', 'Z'].map((lb, i) => (
             <input key={lb} type="number" step="0.1" value={round((k.value as number[])[i], 2)}
               onChange={e => st.setKeyValueComp(k.id, i, parseFloat(e.target.value) || 0)} />))}</div></div>
@@ -83,10 +83,10 @@ export default function Inspector() {
       {selKey && <KeyInspector cam={cam} k={selKey} />}
 
       <div className="sect">
-        <div className="sect-t">Transform<span className="val">{st.project.timeline.playhead.toFixed(2)}s</span></div>
+        <div className="sect-t">Transform</div>
         <Vec3Row label="Position" value={p.position} onChange={(i, v) => st.editPose('position', i, v)} />
         <Vec3Row label="Rotation" value={p.rotation} step={1} disabled={!!cam.target} onChange={(i, v) => st.editPose('rotation', i, v)} />
-        <div className="row"><label>Point of interest</label><span className="val">{poiPoint(cam, st.project.timeline.playhead).map(v => v.toFixed(1)).join(', ')}</span></div>
+        <Vec3Row label="POI" value={poiPoint(cam, st.project.timeline.playhead)} disabled={cam.target?.type === 'object'} onChange={(i, v) => st.editPoi(i, v)} />
       </div>
 
       <div className="sect">
@@ -133,15 +133,6 @@ export default function Inspector() {
         )}
       </div>
 
-      <div className="sect">
-        <div className="sect-t">Add key<span className="val">{st.project.timeline.playhead.toFixed(2)}s</span></div>
-        <div className="chip-row">
-          <button className="btn-sm" onClick={() => st.upsertKey('position', p.position, st.project.timeline.playhead, 'manual')}>◆ Position</button>
-          <button className={'btn-sm' + (cam.target ? ' locked' : '')} onClick={() => { if (!cam.target) st.upsertKey('rotation', p.rotation, st.project.timeline.playhead, 'manual'); }}>◆ Rotation</button>
-          <button className="btn-sm" onClick={() => st.upsertKey('focalLength', cam.optics.focalLength, st.project.timeline.playhead, 'manual')}>◆ Focal</button>
-        </div>
-        {hasAnim(cam) && <button className="btn-sm danger btn-full" style={{ marginTop: 8 }} onClick={() => st.clearAnim()}>Clear animation</button>}
-      </div>
     </div>
   );
 }

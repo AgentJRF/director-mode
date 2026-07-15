@@ -57,7 +57,7 @@ export function applyCurve(ease: Ease) {
 export function fuseAB() {
   const st = S(); const cam = st.active(); const { poseA, poseB } = st.ui;
   if (!poseA || !poseB) { st.toast('Capture A and B first'); return; }
-  cam.keyframes = cam.keyframes.filter(k => !['position', 'rotation', 'focalLength'].includes(k.channel));
+  cam.keyframes = cam.keyframes.filter(k => !['position', 'rotation', 'focalLength', 'poi'].includes(k.channel));
   const t0 = 0, t1 = st.project.timeline.duration;
   upsertKeyOn(cam, 'position', poseA.position, t0, 'interpolation', 'linear');
   upsertKeyOn(cam, 'position', poseB.position, t1, 'interpolation', 'easeInOut');

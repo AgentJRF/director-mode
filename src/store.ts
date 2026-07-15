@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as THREE from 'three';
 import type { Camera, Channel, Ease, KeySource, LUT, Project, Target, Tool, Vec3 } from './types';
-import { clamp, eulerFromLookAt, evaluate, keysOf, round, uid, hasAnim } from './lib/eval';
+import { clamp, eulerFromLookAt, evaluate, keysOf, poiPoint, round, uid, hasAnim } from './lib/eval';
 
 export type ModalKind = null | 'interp' | 'ai-image' | 'ai-video' | 'ai-review-image' | 'ai-review-video' | 'color' | 'export';
 
@@ -58,6 +58,7 @@ interface StoreState {
   setCanvas: (w: number, h: number) => void;
   setOptic: (k: 'focalLength' | 'aperture' | 'motionBlurShutter', v: number) => void;
   editPose: (channel: 'position' | 'rotation', i: number, value: number) => void;
+  editPoi: (i: number, value: number) => void;
   setFocusPoint: (p: Vec3 | null) => void;
   setFocusPicking: (b: boolean) => void;
   toggleHidden: (id: string) => void;
@@ -117,11 +118,26 @@ export const useStore = create<StoreState>((set, get) => {
       else cam.transform[channel] = cur;
       bump();
     },
+    editPoi: (i, value) => {
+      const cam = active(); const t = get().project.timeline.playhead;
+      if (cam.target?.type === 'object') return; // aim locked by object target
+      const cur = poiPoint(cam, t).slice() as Vec3; cur[i] = value;
+      // editing the POI makes it own the aim → ensure a point target (rotation becomes derived)
+      if (!cam.target || cam.target.type !== 'point') { cam.target = { type: 'point', point: cur }; cam.keyframes = cam.keyframes.filter(k => k.channel !== 'rotation'); }
+      if (keysOf(cam, 'poi').length) upsertKeyOn(cam, 'poi', cur, t, 'manual');
+      else cam.target.point = cur;
+      bump();
+    },
     setFocusPoint: p => { active().optics.focusPoint = p; bump(); },
     setFocusPicking: b => { get().ui.focusPicking = b; bump(); },
     toggleHidden: id => { const h = get().ui.hidden; h[id] = !h[id]; bump(); },
     resetFocus: () => { const o = active().optics; o.focusPoint = null; o.aperture = DEFAULT_APERTURE; get().ui.focusPicking = false; bump(); },
-    setTarget: t => { const c = active(); c.target = t; if (t) c.keyframes = c.keyframes.filter(k => k.channel !== 'rotation'); bump(); },
+    setTarget: t => {
+      const c = active(); c.target = t;
+      if (t) c.keyframes = c.keyframes.filter(k => k.channel !== 'rotation'); // rotation now owned by the target
+      if (!t || t.type === 'object') c.keyframes = c.keyframes.filter(k => k.channel !== 'poi'); // POI locked/derived here
+      bump();
+    },
     selectKey: id => { get().ui.selectedKeyId = id; bump(); },
     upsertKey: (ch, value, time, source = 'manual', ease = 'easeInOut') => { upsertKeyOn(active(), ch, value, time, source, ease); bump(); },
     removeKey: id => { const c = active(); c.keyframes = c.keyframes.filter(k => k.id !== id); if (get().ui.selectedKeyId === id) get().ui.selectedKeyId = null; bump(); },

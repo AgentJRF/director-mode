@@ -8,7 +8,7 @@ import type { Channel, Keyframe } from '../types';
 const TRACK_H = 34, ROW_H = 18, GAP = 8, TOP_H = 22, LEFT = 8, RIGHT = 24;
 const PLAYHEAD = '#29b6f6';
 
-type RowDef = { kind: 'info'; label: string; value: string } | { kind: 'ch'; label: string; ch: Channel; lock?: boolean };
+type RowDef = { label: string; ch: Channel; lock?: boolean };
 
 export default function Timeline() {
   useRev();
@@ -37,10 +37,10 @@ export default function Timeline() {
   const snap = (t: number) => snapToFrame(t, fps);
 
   const rowsFor = (c: typeof cams[number]): RowDef[] => ([
-    { kind: 'info', label: 'Point of Interest', value: poiPoint(c, tl.playhead).map(v => v.toFixed(1)).join(', ') },
-    { kind: 'ch', label: 'Position', ch: 'position' },
-    { kind: 'ch', label: 'Orientation', ch: 'rotation', lock: !!c.target },
-    { kind: 'ch', label: 'Focal length', ch: 'focalLength' },
+    { label: 'Point of Interest', ch: 'poi', lock: c.target?.type === 'object' },
+    { label: 'Position', ch: 'position' },
+    { label: 'Orientation', ch: 'rotation', lock: !!c.target },
+    { label: 'Focal length', ch: 'focalLength' },
   ]);
 
   let yCur = TOP_H + 8;
@@ -154,14 +154,12 @@ export default function Timeline() {
                 {exp && rows.length > 0 && <rect x={LEFT} y={rows[0].ry - 2} width={barW} height={rows.length * ROW_H + 4} rx={6} fill="rgba(166,76,224,0.10)" />}
                 {rows.map(({ def, ry }) => {
                   const rcy = ry + ROW_H / 2;
-                  const grey = def.kind === 'info' || (def.kind === 'ch' && def.lock);
+                  const grey = !!def.lock;
                   return (
                     <g key={def.label}>
-                      <text x={LEFT + 30} y={rcy + 3} fill={grey ? '#6b6270' : '#9aa3ab'} fontSize={10}>{def.label}{def.kind === 'ch' && def.lock ? ' ⚿' : ''}</text>
+                      <text x={LEFT + 30} y={rcy + 3} fill={grey ? '#6b6270' : '#9aa3ab'} fontSize={10}>{def.label}{def.lock ? ' ⚿' : ''}</text>
                       <line x1={LEFT} y1={ry + ROW_H - 1} x2={LEFT + barW} y2={ry + ROW_H - 1} stroke="#2a2130" />
-                      {def.kind === 'info'
-                        ? <text x={LEFT + 150} y={rcy + 3} fill="#6b6270" fontSize={10} fontFamily="monospace" pointerEvents="none">{def.value}</text>
-                        : keysOf(c, def.ch).map(k => diamond(k, x(k.time), rcy, c.id, 5))}
+                      {keysOf(c, def.ch).map(k => diamond(k, x(k.time), rcy, c.id, 5))}
                     </g>
                   );
                 })}
@@ -175,11 +173,10 @@ export default function Timeline() {
       </div>
 
       <div className="tl-zoom">
-        <span className="time-read" style={{ color: 'var(--ink-3)', marginRight: 'auto' }}>Click a track's ▸ to reveal its parameters · drag a key · Del / double-click: delete · snap to frame</span>
-        <span className="mtn">▁</span>
+        <span className="mtn" style={{ marginLeft: 'auto' }}>▁</span>
         <input type="range" min={1} max={30} step={0.1} value={zoom} onChange={e => setZoom(parseFloat(e.target.value))} title="Zoom timeline" />
-        <span className="mtn" style={{ fontSize: 15 }}>▂▄█</span>
-        <button className="btn-sm" title="Fit to view" onClick={() => setZoom(1)}>Fit</button>
+        <span className="mtn" style={{ fontSize: 13 }}>▂▄█</span>
+        <button className="btn-sm tl-fit" title="Fit to view" onClick={() => setZoom(1)}>Fit</button>
       </div>
     </div>
   );
@@ -190,4 +187,5 @@ function keyAtPlayhead() {
   const p = evaluate(cam, t);
   st.upsertKey('position', p.position, t, 'manual');
   if (!cam.target) st.upsertKey('rotation', p.rotation, t, 'manual');
+  else if (cam.target.type === 'point') st.upsertKey('poi', poiPoint(cam, t), t, 'manual');
 }
