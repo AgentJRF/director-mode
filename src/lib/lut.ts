@@ -4,10 +4,10 @@ const grad = (a: string, b: string) => `linear-gradient(135deg,${a},${b})`;
 
 export const LUT_PRESETS = [
   { name: 'Teal & orange', grade: { exposure: 0.05, contrast: 0.18, temperature: 0.15, tint: -0.05, saturation: 0.2 }, swatch: grad('#0e3b45', '#e08a3c') },
-  { name: 'Désaturé froid', grade: { exposure: -0.05, contrast: 0.1, temperature: -0.25, tint: 0.05, saturation: -0.35 }, swatch: grad('#3a4650', '#8a97a3') },
-  { name: 'Chaud doré', grade: { exposure: 0.1, contrast: 0.08, temperature: 0.35, tint: 0.08, saturation: 0.1 }, swatch: grad('#4a2f12', '#e0b060') },
-  { name: 'Nuit bleutée', grade: { exposure: -0.15, contrast: 0.22, temperature: -0.4, tint: -0.1, saturation: -0.1 }, swatch: grad('#0a1420', '#2a4a6a') },
-  { name: 'Neutre clean', grade: { exposure: 0, contrast: 0.05, temperature: 0, tint: 0, saturation: 0 }, swatch: grad('#2a2e32', '#c8ccd0') },
+  { name: 'Cool desaturated', grade: { exposure: -0.05, contrast: 0.1, temperature: -0.25, tint: 0.05, saturation: -0.35 }, swatch: grad('#3a4650', '#8a97a3') },
+  { name: 'Warm gold', grade: { exposure: 0.1, contrast: 0.08, temperature: 0.35, tint: 0.08, saturation: 0.1 }, swatch: grad('#4a2f12', '#e0b060') },
+  { name: 'Blue night', grade: { exposure: -0.15, contrast: 0.22, temperature: -0.4, tint: -0.1, saturation: -0.1 }, swatch: grad('#0a1420', '#2a4a6a') },
+  { name: 'Clean neutral', grade: { exposure: 0, contrast: 0.05, temperature: 0, tint: 0, saturation: 0 }, swatch: grad('#2a2e32', '#c8ccd0') },
 ];
 
 export function applyLutToCanvas(project: Project) {

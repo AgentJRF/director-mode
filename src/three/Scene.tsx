@@ -6,6 +6,7 @@ import { EffectComposer, DepthOfField } from '@react-three/postprocessing';
 import CameraController from './CameraController';
 import SceneGizmos from './SceneGizmos';
 import FocusPicker from './FocusPicker';
+import TargetPicker from './TargetPicker';
 import EditorFly from './EditorFly';
 import Product from './Product';
 import { useStore, PIVOT, S } from '../store';
@@ -40,7 +41,7 @@ function DoF() {
   const ap = cam.optics.aperture;
   const fp = cam.optics.focusPoint;
   // Aperture always drives blur strength + depth of the sharp slab (world units).
-  // "Général" focuses on the product centre; "Focus choisi" focuses on the picked point.
+  // "General" focuses on the product centre; "Picked" focuses on the picked point.
   const bokeh = clamp((1 / ap) * 10, 1, 8);
   const range = clamp(ap * 0.4, 0.5, 8);
   const target = fp ? new THREE.Vector3(fp[0], fp[1], fp[2]) : new THREE.Vector3(PIVOT.x, PIVOT.y, PIVOT.z);
@@ -66,6 +67,7 @@ export default function Scene() {
       <Suspense fallback={null}><Product /></Suspense>
       <CameraController renderCamRef={renderCamRef} />
       <FocusPicker />
+      <TargetPicker />
       {mode === 'scene' && <OrbitControls makeDefault enableDamping dampingFactor={0.12} target={[0, 1.4, 0]} enabled={!gizmoDragging} enablePan screenSpacePanning panSpeed={1.1} minDistance={1.5} maxDistance={120} />}
       {mode === 'scene' && <EditorFly />}
       {mode === 'scene' && <SceneGizmos renderCamRef={renderCamRef} />}

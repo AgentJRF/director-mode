@@ -45,18 +45,18 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
   }
   const n = cam.keyframes.length;
   st.setPlayhead(t0); st.bump();
-  st.toast(`Preset « ${kind} » appliqué — ${n} clés éditables`);
+  st.toast(`Preset "${kind}" applied — ${n} editable keys`);
 }
 
 export function applyCurve(ease: Ease) {
   const cam = S().active();
   cam.keyframes.forEach(k => { const first = keysOf(cam, k.channel)[0]; if (k !== first) k.ease = ease; });
-  S().toast('Courbe « ' + ease + ' » appliquée (geste inchangé)'); S().bump();
+  S().toast('Curve "' + ease + '" applied (motion unchanged)'); S().bump();
 }
 
 export function fuseAB() {
   const st = S(); const cam = st.active(); const { poseA, poseB } = st.ui;
-  if (!poseA || !poseB) { st.toast('Capture A et B d\'abord'); return; }
+  if (!poseA || !poseB) { st.toast('Capture A and B first'); return; }
   cam.keyframes = cam.keyframes.filter(k => !['position', 'rotation', 'focalLength'].includes(k.channel));
   const t0 = 0, t1 = st.project.timeline.duration;
   upsertKeyOn(cam, 'position', poseA.position, t0, 'interpolation', 'linear');
@@ -68,7 +68,7 @@ export function fuseAB() {
   upsertKeyOn(cam, 'focalLength', poseA.focal, t0, 'interpolation', 'linear');
   upsertKeyOn(cam, 'focalLength', poseB.focal, t1, 'interpolation', 'easeInOut');
   st.setPoseAB('A', null); st.setPoseAB('B', null); st.setModal(null);
-  st.toast('Fusion A→B : 1 caméra, 2 clés par canal — spline éditable'); st.bump();
+  st.toast('A→B merged: 1 camera, 2 keys per channel — editable spline'); st.bump();
 }
 
 export function resampleChannel(cam: Camera, ch: Channel, n: number) {

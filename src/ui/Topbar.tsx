@@ -10,8 +10,8 @@ export default function Topbar() {
       <span className="badge proto">prototype</span>
       <span className="badge">{width}×{height}</span>
       <div className="top-spacer" />
-      <button className="tbtn" onClick={() => S().setModal('color')}>Couleur / LUT</button>
-      <button className="tbtn" onClick={() => S().setModal('export')}>Exporter</button>
+      <button className="tbtn" onClick={() => S().setModal('color')}>Color / LUT</button>
+      <button className="tbtn" onClick={() => S().setModal('export')}>Export</button>
     </div>
   );
 }

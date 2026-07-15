@@ -22,16 +22,16 @@ export default function ViewPills() {
   return (
     <div className="hud" style={{ top: 12, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', display: 'flex', gap: 8 }}>
       <div className="seg" style={{ background: 'rgba(0,0,0,.5)' }}>
-        <button className={ui.viewMode === 'camera' ? 'sel' : ''} onClick={() => S().setViewMode('camera')} title="Vue à travers la caméra">◉ Caméra</button>
-        <button className={ui.viewMode === 'scene' ? 'sel' : ''} onClick={() => S().setViewMode('scene')} title="Vue éditeur libre : voir la caméra + la spline dans la scène">⬚ Scène</button>
+        <button className={ui.viewMode === 'camera' ? 'sel' : ''} onClick={() => S().setViewMode('camera')} title="Look through the camera">◉ Camera</button>
+        <button className={ui.viewMode === 'scene' ? 'sel' : ''} onClick={() => S().setViewMode('scene')} title="Free editor view: see the camera + animation spline in the scene">⬚ Scene</button>
       </div>
       {ui.viewMode === 'scene' && (
         <div className="seg" style={{ background: 'rgba(0,0,0,.5)' }}>
           <button onClick={() => S().setGizmoSpace(world ? 'local' : 'world')}
-            title={world ? 'Repère du gizmo : World — cliquer pour passer en Objet (R)' : 'Repère du gizmo : Objet — cliquer pour passer en World (R)'}
+            title={world ? 'Gizmo space: World — click for Object (R)' : 'Gizmo space: Object — click for World (R)'}
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {world ? <GlobeIcon /> : <CubeIcon />}
-            <span>{world ? 'World' : 'Objet'}</span>
+            <span>{world ? 'World' : 'Object'}</span>
           </button>
         </div>
       )}

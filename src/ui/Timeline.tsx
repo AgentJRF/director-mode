@@ -70,11 +70,11 @@ export default function Timeline() {
     <div id="timeline">
       <div className="tl-top">
         <div className="transport">
-          <button className="tbtn-round" title="Début" onClick={() => { S().setPlayhead(0); S().setPlaying(false); }}>⇤</button>
-          <button className={'tbtn-round' + (playing ? '' : ' play')} title="Lecture/Pause"
+          <button className="tbtn-round" title="Start" onClick={() => { S().setPlayhead(0); S().setPlaying(false); }}>⇤</button>
+          <button className={'tbtn-round' + (playing ? '' : ' play')} title="Play/Pause"
             onClick={() => { if (tl.playhead >= dur) S().setPlayhead(0); S().setPlaying(!playing); }}>{playing ? '❚❚' : '▶'}</button>
-          <button className="tbtn-round" title="Poser une clé au playhead" onClick={keyAtPlayhead}>◆</button>
-          <button className="tbtn-round" title="Supprimer la clé sélectionnée (Suppr)"
+          <button className="tbtn-round" title="Add key at playhead" onClick={keyAtPlayhead}>◆</button>
+          <button className="tbtn-round" title="Delete selected key (Del)"
             style={{ opacity: st.ui.selectedKeyId ? 1 : 0.4 }}
             onClick={() => { if (st.ui.selectedKeyId) S().removeKey(st.ui.selectedKeyId); }}>🗑</button>
         </div>
@@ -85,7 +85,7 @@ export default function Timeline() {
             {FPS_CHOICES.map(f => <option key={f} value={f}>{f}</option>)}
           </select>
         </label>
-        <label className="tl-field">Durée
+        <label className="tl-field">Duration
           <input type="number" min={durUnit === 's' ? 0.1 : 1} step={durUnit === 's' ? 0.1 : 1} value={durInputVal}
             onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) S().setDuration(durUnit === 's' ? v : v / fps); }} style={{ width: 60 }} />
           <div className="seg" style={{ marginLeft: 4 }}>
@@ -137,11 +137,11 @@ export default function Timeline() {
       </div>
 
       <div className="tl-zoom">
-        <span className="time-read" style={{ color: 'var(--ink-3)', marginRight: 'auto' }}>Clic : scrub · glisser une clé · Suppr / double-clic : supprimer · snap à la frame</span>
+        <span className="time-read" style={{ color: 'var(--ink-3)', marginRight: 'auto' }}>Click: scrub · drag a key · Del / double-click: delete · snap to frame</span>
         <span className="mtn">▁</span>
         <input type="range" min={1} max={30} step={0.1} value={zoom} onChange={e => setZoom(parseFloat(e.target.value))} title="Zoom timeline" />
         <span className="mtn" style={{ fontSize: 15 }}>▂▄█</span>
-        <button className="btn-sm" title="Ajuster à la vue" onClick={() => setZoom(1)}>Fit</button>
+        <button className="btn-sm" title="Fit to view" onClick={() => setZoom(1)}>Fit</button>
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ export default function Generators() {
   if (S().ui.tool !== 'generators') return null;
   return (
     <div id="gen-bar">
-      <span className="g-label">Générer</span>
+      <span className="g-label">Generate</span>
       {PRESETS.map(p => (
         <button key={p.id} className="gchip" onClick={() => applyPreset(p.id, {})}>
           <span className="ic">{p.ic}</span>{p.label}
@@ -24,8 +24,8 @@ export default function Generators() {
       ))}
       <div className="gsep" />
       <button className="gchip" onClick={() => S().setModal('interp')}><span className="ic">⇄</span>Interp A→B</button>
-      <button className="gchip" onClick={() => S().setModal('ai-image')}><span className="ic">🖼</span>IA image</button>
-      <button className="gchip" onClick={() => S().setModal('ai-video')}><span className="ic">🎬</span>IA vidéo</button>
+      <button className="gchip" onClick={() => S().setModal('ai-image')}><span className="ic">🖼</span>AI image</button>
+      <button className="gchip" onClick={() => S().setModal('ai-video')}><span className="ic">🎬</span>AI video</button>
     </div>
   );
 }

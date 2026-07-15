@@ -13,6 +13,6 @@ export function Loading() {
   const { active, progress } = useProgress();
   if (!active) return null;
   return (
-    <div id="loading"><div className="ld-inner"><div className="ld-spin" /><div>Chargement de l'asset… {Math.round(progress)}%</div></div></div>
+    <div id="loading"><div className="ld-inner"><div className="ld-spin" /><div>Loading asset… {Math.round(progress)}%</div></div></div>
   );
 }

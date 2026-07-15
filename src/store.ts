@@ -8,7 +8,7 @@ export type ModalKind = null | 'interp' | 'ai-image' | 'ai-video' | 'ai-review-i
 // Shared orbit pivot (product center); updated when the asset loads.
 export const PIVOT = new THREE.Vector3(0, 0.9, 0);
 
-// Default optics (used at camera creation and by "Réinitialiser le focus").
+// Default optics (used at camera creation and by "Reset focus").
 export const DEFAULT_APERTURE = 8.0;
 
 function makeCamera(name: string, pos: Vec3 = [4, 2.2, 5]): Camera {

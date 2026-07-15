@@ -41,6 +41,12 @@ export function evalChannel(cam: Camera, ch: Channel, t: number): Vec3 | number 
 // Object bounding-box centers, registered by the scene so target look-at can resolve them.
 export const OBJECT_CENTERS: Record<string, Vec3> = { product: [0, 0.9, 0], pedestal: [0, 0.25, 0] };
 
+// Scene objects exposed in the UI (target stack / outliner).
+export const SCENE_OBJECTS: { id: string; label: string }[] = [
+  { id: 'product', label: 'Product' },
+  { id: 'pedestal', label: 'Pedestal' },
+];
+
 export function targetPoint(tg: NonNullable<Camera['target']>): Vec3 {
   if (tg.type === 'point' && tg.point) return tg.point;
   if (tg.objectId && OBJECT_CENTERS[tg.objectId]) return OBJECT_CENTERS[tg.objectId];

@@ -11,7 +11,7 @@ export default function Product() {
   const { scene } = useGLTF(URL);
 
   const data = useMemo(() => {
-    scene.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.focusPickable = true; } });
+    scene.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.focusPickable = true; o.userData.objectId = 'product'; } });
     const box = new THREE.Box3().setFromObject(scene);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
@@ -40,7 +40,7 @@ export default function Product() {
 
   return (
     <group>
-      <mesh position={[0, 0.25, 0]} scale={[data.footR / 1.15, 1, data.footR / 1.15]} castShadow receiveShadow userData={{ focusPickable: true }}>
+      <mesh position={[0, 0.25, 0]} scale={[data.footR / 1.15, 1, data.footR / 1.15]} castShadow receiveShadow userData={{ focusPickable: true, objectId: 'pedestal' }}>
         <cylinderGeometry args={[1.15, 1.35, 0.5, 48]} />
         <meshStandardMaterial color="#1a1e22" roughness={0.6} metalness={0.3} />
       </mesh>

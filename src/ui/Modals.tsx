@@ -20,17 +20,17 @@ function Shell({ title, children, footer }: { title: string; children: React.Rea
 
 const AI_IMAGES = [
   { name: 'Hero low-angle', thumb: grad('#243b55', '#141e30'), pose: { position: [2.6, 0.7, 4.4] as Vec3, focal: 35, aperture: 1.8 }, confidence: 0.88 },
-  { name: 'Top-down produit', thumb: grad('#3a2e2a', '#171310'), pose: { position: [0.5, 6.2, 2.2] as Vec3, focal: 50, aperture: 5.6 }, confidence: 0.74 },
-  { name: 'Profil serré', thumb: grad('#2b3a2e', '#12160f'), pose: { position: [5.4, 1.1, 0.6] as Vec3, focal: 85, aperture: 2.0 }, confidence: 0.81 },
-  { name: '3/4 large', thumb: grad('#2e2a3a', '#13111a'), pose: { position: [4.2, 2.4, 5.0] as Vec3, focal: 28, aperture: 4.0 }, confidence: 0.69 },
-  { name: 'Contre-plongée', thumb: grad('#3a2233', '#1a0f16'), pose: { position: [3.0, 0.35, 3.6] as Vec3, focal: 24, aperture: 2.8 }, confidence: 0.77 },
-  { name: 'Détail macro', thumb: grad('#26323a', '#0f1418'), pose: { position: [2.2, 0.8, 2.4] as Vec3, focal: 100, aperture: 1.4 }, confidence: 0.63 },
+  { name: 'Top-down', thumb: grad('#3a2e2a', '#171310'), pose: { position: [0.5, 6.2, 2.2] as Vec3, focal: 50, aperture: 5.6 }, confidence: 0.74 },
+  { name: 'Tight profile', thumb: grad('#2b3a2e', '#12160f'), pose: { position: [5.4, 1.1, 0.6] as Vec3, focal: 85, aperture: 2.0 }, confidence: 0.81 },
+  { name: '3/4 wide', thumb: grad('#2e2a3a', '#13111a'), pose: { position: [4.2, 2.4, 5.0] as Vec3, focal: 28, aperture: 4.0 }, confidence: 0.69 },
+  { name: 'Low angle', thumb: grad('#3a2233', '#1a0f16'), pose: { position: [3.0, 0.35, 3.6] as Vec3, focal: 24, aperture: 2.8 }, confidence: 0.77 },
+  { name: 'Macro detail', thumb: grad('#26323a', '#0f1418'), pose: { position: [2.2, 0.8, 2.4] as Vec3, focal: 100, aperture: 1.4 }, confidence: 0.63 },
 ];
 const AI_VIDEOS = [
-  { name: 'Reveal orbital', gesture: 'orbit', thumb: grad('#243b55', '#141e30'), params: { duration: 4, amplitude: 0.9, ease: 'easeInOut' as const }, confidence: 0.82 },
-  { name: 'Push-in dramatique', gesture: 'dolly', thumb: grad('#3a2e2a', '#171310'), params: { duration: 3, amplitude: 1.1, ease: 'easeIn' as const }, confidence: 0.86 },
+  { name: 'Orbital reveal', gesture: 'orbit', thumb: grad('#243b55', '#141e30'), params: { duration: 4, amplitude: 0.9, ease: 'easeInOut' as const }, confidence: 0.82 },
+  { name: 'Dramatic push-in', gesture: 'dolly', thumb: grad('#3a2e2a', '#171310'), params: { duration: 3, amplitude: 1.1, ease: 'easeIn' as const }, confidence: 0.86 },
   { name: 'Vertigo / dolly-zoom', gesture: 'dollyZoom', thumb: grad('#2b3a2e', '#12160f'), params: { duration: 3.5, amplitude: 0.8, ease: 'easeInOut' as const }, confidence: 0.71 },
-  { name: 'Pan balayage', gesture: 'pan', thumb: grad('#2e2a3a', '#13111a'), params: { duration: 2.5, amplitude: 1.2, ease: 'easeOut' as const }, confidence: 0.79 },
+  { name: 'Sweeping pan', gesture: 'pan', thumb: grad('#2e2a3a', '#13111a'), params: { duration: 2.5, amplitude: 1.2, ease: 'easeOut' as const }, confidence: 0.79 },
 ];
 
 const ConfBar = ({ c }: { c: number }) => (
@@ -41,7 +41,7 @@ const ConfBar = ({ c }: { c: number }) => (
 );
 const FileStub = ({ kind }: { kind: 'image' | 'video' }) => (
   <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ink-2)' }}>
-    <span>… ou importer :</span><input type="file" accept={kind === 'image' ? 'image/*' : 'video/*'} style={{ fontSize: 11 }} /><span className="badge proto">estimé</span>
+    <span>… or import:</span><input type="file" accept={kind === 'image' ? 'image/*' : 'video/*'} style={{ fontSize: 11 }} /><span className="badge proto">estimated</span>
   </span>
 );
 
@@ -54,16 +54,16 @@ function InterpModal() {
       <div className="ref" style={{ padding: 12, cursor: 'default' }}>
         <div style={{ fontWeight: 600, marginBottom: 6 }}>Pose {which}</div>
         <div className="mono" style={{ fontSize: 10, color: 'var(--ink-2)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-          {pose ? `pos ${pose.position.map(v => v.toFixed(1)).join(', ')}\nfocale ${Math.round(pose.focal)}mm` : '— non capturée —'}
+          {pose ? `pos ${pose.position.map(v => v.toFixed(1)).join(', ')}\nfocal ${Math.round(pose.focal)}mm` : '— not captured —'}
         </div>
-        <button className="btn-sm btn-full" style={{ marginTop: 8 }} onClick={() => capture(which)}>Capturer la vue courante</button>
+        <button className="btn-sm btn-full" style={{ marginTop: 8 }} onClick={() => capture(which)}>Capture current view</button>
       </div>
     );
   };
   return (
     <Shell title="Interpolation A → B"
-      footer={<><button className="tbtn" onClick={() => S().setModal(null)}>Annuler</button><button className="tbtn primary" onClick={fuseAB}>Fusionner en 1 caméra</button></>}>
-      <p className="hint" style={{ marginTop: 0 }}>Compose une vue, capture-la comme A, compose-en une autre, capture B. La fusion crée UNE caméra animée à 2 clés (A et B ne restent pas comme caméras fantômes).</p>
+      footer={<><button className="tbtn" onClick={() => S().setModal(null)}>Cancel</button><button className="tbtn primary" onClick={fuseAB}>Merge into 1 camera</button></>}>
+      <p className="hint" style={{ marginTop: 0 }}>Compose a view and capture A, compose another and capture B. Merging creates ONE 2-key camera (A and B don't remain as ghost cameras).</p>
       <div className="ref-grid" style={{ gridTemplateColumns: '1fr 1fr' }}><Card which="A" /><Card which="B" /></div>
     </Shell>
   );
@@ -76,29 +76,29 @@ function AIImageModal() {
   const ref = sel != null ? AI_IMAGES[sel] : null;
   if (review && ref) {
     return (
-      <Shell title="Revue IA · Shot fixe"
-        footer={<><button className="tbtn" onClick={() => setReview(false)}>← Retour</button>
+      <Shell title="AI review · Still shot"
+        footer={<><button className="tbtn" onClick={() => setReview(false)}>← Back</button>
           <button className="tbtn primary" onClick={() => {
             const st = S(); const cam = st.active();
             cam.transform.position = pose.position;
             cam.transform.rotation = eulerFromLookAt(pose.position, PIVOT.toArray() as Vec3);
             cam.optics.focalLength = pose.focal; cam.optics.aperture = pose.aperture;
-            st.setModal(null); st.toast('Pose composée (aucune clé) — timeline inchangée'); st.bump();
-          }}>Valider la pose</button></>}>
-        <div className="row"><label>Confiance</label><ConfBar c={ref.confidence} /></div>
-        <p className="hint">Valeurs estimées — ajustables avant validation. Rien n'est appliqué de façon irréversible.</p>
-        <div className="row"><label>Focale</label><input type="number" value={pose.focal} onChange={e => setPose({ ...pose, focal: +e.target.value })} /></div>
-        <div className="row"><label>Ouverture</label><input type="number" step="0.1" value={pose.aperture} onChange={e => setPose({ ...pose, aperture: +e.target.value })} /></div>
+            st.setModal(null); st.toast('Pose composed (no keys) — timeline unchanged'); st.bump();
+          }}>Apply pose</button></>}>
+        <div className="row"><label>Confidence</label><ConfBar c={ref.confidence} /></div>
+        <p className="hint">Estimated values — adjustable before applying. Nothing is applied irreversibly.</p>
+        <div className="row"><label>Focal</label><input type="number" value={pose.focal} onChange={e => setPose({ ...pose, focal: +e.target.value })} /></div>
+        <div className="row"><label>Aperture</label><input type="number" step="0.1" value={pose.aperture} onChange={e => setPose({ ...pose, aperture: +e.target.value })} /></div>
         <div className="row"><label>Position</label><span className="val">{pose.position.map(v => v.toFixed(1)).join(', ')}</span></div>
-        <label className="checkline"><input type="checkbox" defaultChecked /> Définir comme pose de départ</label>
+        <label className="checkline"><input type="checkbox" defaultChecked /> Set as start pose</label>
       </Shell>
     );
   }
   return (
-    <Shell title="IA · Match caméra depuis image"
-      footer={<><button className="tbtn" onClick={() => S().setModal(null)}>Annuler</button>
-        <button className="tbtn primary" onClick={() => { if (sel == null) { S().toast('Choisis une référence'); return; } setPose({ ...AI_IMAGES[sel].pose }); setReview(true); }}>Analyser</button></>}>
-      <p className="hint" style={{ marginTop: 0 }}>IA — shot fixe depuis une image (mocké). Compose un plan : place la caméra + règle focale/ouverture/angle. N'écrit AUCUNE clé.</p>
+    <Shell title="AI · Match camera from image"
+      footer={<><button className="tbtn" onClick={() => S().setModal(null)}>Cancel</button>
+        <button className="tbtn primary" onClick={() => { if (sel == null) { S().toast('Pick a reference'); return; } setPose({ ...AI_IMAGES[sel].pose }); setReview(true); }}>Analyze</button></>}>
+      <p className="hint" style={{ marginTop: 0 }}>AI — still shot from an image (mocked). Composes a shot: places the camera + sets focal/aperture/angle. Writes NO keys.</p>
       <div className="ref-grid">
         {AI_IMAGES.map((r, i) => (
           <div key={i} className={'ref' + (sel === i ? ' sel' : '')} onClick={() => setSel(i)}>
@@ -118,27 +118,27 @@ function AIVideoModal() {
   const ref = sel != null ? AI_VIDEOS[sel] : null;
   if (review && ref) {
     return (
-      <Shell title="Revue IA · Animation"
-        footer={<><button className="tbtn" onClick={() => setReview(false)}>← Retour</button>
+      <Shell title="AI review · Animation"
+        footer={<><button className="tbtn" onClick={() => setReview(false)}>← Back</button>
           <button className="tbtn primary" onClick={() => {
             const st = S(); const cam = st.active(); cam.keyframes = [];
             applyPreset(ref.gesture, { ...ref.params });
             resampleChannel(cam, 'position', fidelity);
             cam.keyframes.forEach(k => (k.source = 'aiVideo'));
-            st.setModal(null); st.toast('Animation IA appliquée — ' + fidelity + ' clés éditables'); st.bump();
-          }}>Valider l'animation</button></>}>
-        <div className="row"><label>Geste détecté</label><span className="val">{ref.gesture}</span></div>
-        <div className="row"><label>Confiance</label><ConfBar c={ref.confidence} /></div>
-        <div className="row"><label>Clés générées</label><span className="val">{fidelity}</span></div>
-        <p className="hint">Résultat = mouvement éditable, de même nature qu'un preset appliqué. Ajuste puis valide.</p>
+            st.setModal(null); st.toast('AI animation applied — ' + fidelity + ' editable keys'); st.bump();
+          }}>Apply animation</button></>}>
+        <div className="row"><label>Detected gesture</label><span className="val">{ref.gesture}</span></div>
+        <div className="row"><label>Confidence</label><ConfBar c={ref.confidence} /></div>
+        <div className="row"><label>Keys generated</label><span className="val">{fidelity}</span></div>
+        <p className="hint">Result = editable motion, same as an applied preset. Adjust then apply.</p>
       </Shell>
     );
   }
   return (
-    <Shell title="IA · Animation depuis vidéo"
-      footer={<><button className="tbtn" onClick={() => S().setModal(null)}>Annuler</button>
-        <button className="tbtn primary" onClick={() => { if (sel == null) { S().toast('Choisis une vidéo'); return; } setReview(true); }}>Analyser</button></>}>
-      <p className="hint" style={{ marginTop: 0 }}>IA — animation depuis une vidéo (mocké). Déduit un geste global → preset + params. Sort peu de clés porteuses (jamais une par frame).</p>
+    <Shell title="AI · Animation from video"
+      footer={<><button className="tbtn" onClick={() => S().setModal(null)}>Cancel</button>
+        <button className="tbtn primary" onClick={() => { if (sel == null) { S().toast('Pick a video'); return; } setReview(true); }}>Analyze</button></>}>
+      <p className="hint" style={{ marginTop: 0 }}>AI — animation from a video (mocked). Infers a global gesture → preset + params. Outputs few carrier keys (never one per frame).</p>
       <div className="ref-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
         {AI_VIDEOS.map((r, i) => (
           <div key={i} className={'ref' + (sel === i ? ' sel' : '')} onClick={() => setSel(i)}>
@@ -146,9 +146,9 @@ function AIVideoModal() {
           </div>
         ))}
       </div>
-      <div className="row" style={{ marginTop: 12 }}><label>Fidélité ↔ éditable</label>
+      <div className="row" style={{ marginTop: 12 }}><label>Fidelity ↔ editable</label>
         <input className="amber" type="range" min={2} max={6} step={1} value={fidelity} onChange={e => setFidelity(+e.target.value)} />
-        <span className="val">{fidelity} clés</span></div>
+        <span className="val">{fidelity} keys</span></div>
       <label className="checkline"><FileStub kind="video" /></label>
     </Shell>
   );
@@ -158,9 +158,9 @@ function ColorModal() {
   useRev(); const st = S(); const proj = st.project;
   if (proj.luts.length === 0) { st.addLut({ name: LUT_PRESETS[0].name, grade: { ...LUT_PRESETS[0].grade }, swatch: LUT_PRESETS[0].swatch }); }
   return (
-    <Shell title="Couleur / LUT" footer={<button className="tbtn" onClick={() => S().setModal(null)}>Fermer</button>}>
-      <p className="hint" style={{ marginTop: 0 }}>Couleur / LUT (mocké). Déduit une LUT depuis une seule frame → grade appliqué au viewport. Seule sortie hors timeline : va dans ce panneau, jamais dans la timeline.</p>
-      <div className="sect-t" style={{ padding: 0, margin: '10px 0 4px' }}>Bibliothèque de LUT</div>
+    <Shell title="Color / LUT" footer={<button className="tbtn" onClick={() => S().setModal(null)}>Close</button>}>
+      <p className="hint" style={{ marginTop: 0 }}>Color / LUT (mocked). Derives a LUT from a single frame → grade applied to the viewport. Off-timeline: lives here, never in the timeline.</p>
+      <div className="sect-t" style={{ padding: 0, margin: '10px 0 4px' }}>LUT library</div>
       <div className="lut-lib">
         {proj.luts.map(l => (
           <div key={l.id} className={'lut-sw' + (l.id === proj.activeLutId ? ' sel' : '')} onClick={() => { st.setActiveLut(l.id); applyLutToCanvas(proj); }}>
@@ -168,23 +168,23 @@ function ColorModal() {
           </div>
         ))}
         <div className={'lut-sw' + (proj.activeLutId === null ? ' sel' : '')} onClick={() => { st.setActiveLut(null); applyLutToCanvas(proj); }}>
-          <div className="sw" style={{ background: '#111' }} /><div className="nm">Aucune</div>
+          <div className="sw" style={{ background: '#111' }} /><div className="nm">None</div>
         </div>
       </div>
-      <div className="sect-t" style={{ padding: 0, margin: '16px 0 4px' }}>Dériver depuis une frame</div>
+      <div className="sect-t" style={{ padding: 0, margin: '16px 0 4px' }}>Derive from a frame</div>
       <div className="tabs">
         {LUT_PRESETS.map(p => (
           <div key={p.name} className="tab" onClick={() => {
             st.addLut({ name: p.name, grade: { ...p.grade }, swatch: p.swatch });
-            const last = proj.luts[proj.luts.length - 1]; st.setActiveLut(last.id); applyLutToCanvas(proj); st.toast('LUT « ' + p.name + ' » ajoutée');
+            const last = proj.luts[proj.luts.length - 1]; st.setActiveLut(last.id); applyLutToCanvas(proj); st.toast('LUT "' + p.name + '" added');
           }}>{p.name}</div>
         ))}
       </div>
-      <label className="checkline"><FileStub kind="image" /> (échantillonnage palette)</label>
-      <div className="sect-t" style={{ padding: 0, margin: '16px 0 4px' }}>Depuis une référence IA</div>
-      <label className="checkline"><input type="checkbox" /> Matcher la caméra (pose + optique)</label>
-      <label className="checkline"><input type="checkbox" defaultChecked /> Matcher la couleur (LUT)</label>
-      <div className="hint">Les deux options sont indépendantes (cases séparées).</div>
+      <label className="checkline"><FileStub kind="image" /> (palette sampling)</label>
+      <div className="sect-t" style={{ padding: 0, margin: '16px 0 4px' }}>From an AI reference</div>
+      <label className="checkline"><input type="checkbox" /> Match camera (pose + optics)</label>
+      <label className="checkline"><input type="checkbox" defaultChecked /> Match color (LUT)</label>
+      <div className="hint">Both options are independent (separate checkboxes).</div>
     </Shell>
   );
 }
@@ -197,14 +197,14 @@ function ExportModal() {
   const [prog, setProg] = useState(0);
 
   const canvasEl = () => document.querySelector('#canvas-wrap canvas') as HTMLCanvasElement | null;
-  const exportStatic = () => { const c = canvasEl(); if (!c) return; const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = 'director-shot.png'; a.click(); st.toast('Shot statique exporté (PNG)'); };
+  const exportStatic = () => { const c = canvasEl(); if (!c) return; const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = 'director-shot.png'; a.click(); st.toast('Still shot exported (PNG)'); };
   const exportVideo = async () => {
     const c = canvasEl(); if (!c) return; const cam = st.active();
-    if (cam.keyframes.length === 0) { st.toast('Caméra statique : anime d\'abord'); return; }
+    if (cam.keyframes.length === 0) { st.toast('Static camera: animate first'); return; }
     let rec: MediaRecorder;
     const stream = c.captureStream(fps);
     try { rec = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' }); }
-    catch { try { rec = new MediaRecorder(stream, { mimeType: 'video/webm' }); } catch { st.toast('MediaRecorder indisponible'); return; } }
+    catch { try { rec = new MediaRecorder(stream, { mimeType: 'video/webm' }); } catch { st.toast('MediaRecorder unavailable'); return; } }
     const chunks: Blob[] = []; rec.ondataavailable = e => e.data.size && chunks.push(e.data);
     const done = new Promise<void>(res => { rec.onstop = () => res(); });
     st.setRecording(true); rec.start();
@@ -216,26 +216,26 @@ function ExportModal() {
     });
     rec.stop(); await done; st.setRecording(false); setProg(0);
     const blob = new Blob(chunks, { type: 'video/webm' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'director-shot.webm'; a.click();
-    st.toast('Vidéo exportée (WebM · ' + fps + 'fps)');
+    st.toast('Video exported (WebM · ' + fps + 'fps)');
   };
 
   return (
-    <Shell title="Sortie / export"
+    <Shell title="Output / export"
       footer={<>
-        <button className="tbtn" onClick={exportStatic}>⬇ Shot statique (PNG)</button>
-        <button className="tbtn primary" onClick={exportVideo}>⬇ Exporter la vidéo</button>
-        <button className="tbtn" onClick={() => S().setModal(null)}>Fermer</button></>}>
-      <div className="sect-t" style={{ padding: 0, marginBottom: 6 }}>Taille de canvas (réglage projet)</div>
+        <button className="tbtn" onClick={exportStatic}>⬇ Still shot (PNG)</button>
+        <button className="tbtn primary" onClick={exportVideo}>⬇ Export video</button>
+        <button className="tbtn" onClick={() => S().setModal(null)}>Close</button></>}>
+      <div className="sect-t" style={{ padding: 0, marginBottom: 6 }}>Canvas size (project setting)</div>
       <div className="seg">
         {RATIOS.map(([lbl, w, h]) => (
           <button key={lbl} className={w === canvas.width && h === canvas.height ? 'sel' : ''} onClick={() => st.setCanvas(w, h)}>{lbl}</button>
         ))}
       </div>
-      <div className="sect-t" style={{ padding: 0, margin: '16px 0 6px' }}>Export vidéo — caméra active</div>
-      <div className="row"><label>Images / s</label>
+      <div className="sect-t" style={{ padding: 0, margin: '16px 0 6px' }}>Video export — active camera</div>
+      <div className="row"><label>Frames / s</label>
         <div className="seg">{[24, 30, 60].map(f => <button key={f} className={f === fps ? 'sel' : ''} onClick={() => setFps(f)}>{f}</button>)}</div></div>
       <div className="row"><label>Format</label><span className="val">WebM (VP9)</span></div>
-      <div className="hint">Décision ouverte (non tranchée) : « caméra active uniquement » vs « cuts entre caméras ». Implémenté d'abord : caméra active.</div>
+      <div className="hint">Open decision (not settled): active camera only vs cuts between cameras. Active camera first.</div>
       <div className="progress"><i style={{ width: prog + '%' }} /></div>
     </Shell>
   );
