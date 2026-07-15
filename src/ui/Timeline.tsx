@@ -1,15 +1,14 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { S } from '../store';
 import { useRev } from './bits';
-import { CHANNELS, keysOf, clamp, evaluate } from '../lib/eval';
+import { clamp, evaluate, keysOf, poiPoint } from '../lib/eval';
 import { toTimecode, snapToFrame, niceFrameStep } from '../lib/time';
-import type { Channel } from '../types';
+import type { Channel, Keyframe } from '../types';
 
-const LANE_H = 24, TOP_H = 20, LEFT = 8, RIGHT = 24;
-const H = TOP_H + 8 + CHANNELS.length * LANE_H + 4;
-const CH_COLOR: Record<Channel, string> = { position: '#5b9dd9', rotation: '#8f7bd0', focalLength: '#4fb477' };
-const CH_LABEL: Record<Channel, string> = { position: 'POS', rotation: 'ROT', focalLength: 'FOCAL' };
-const FPS_CHOICES = [24, 25, 30, 60];
+const TRACK_H = 34, ROW_H = 18, GAP = 8, TOP_H = 22, LEFT = 8, RIGHT = 24;
+const PLAYHEAD = '#29b6f6';
+
+type RowDef = { kind: 'info'; label: string; value: string } | { kind: 'ch'; label: string; ch: Channel; lock?: boolean };
 
 export default function Timeline() {
   useRev();
@@ -18,6 +17,7 @@ export default function Timeline() {
   const [scrollLeft, setScrollLeft] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [durUnit, setDurUnit] = useState<'s' | 'f'>('s');
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const drag = useRef<{ mode: 'scrub' | 'key'; keyId?: string } | null>(null);
 
   useLayoutEffect(() => {
@@ -26,16 +26,34 @@ export default function Timeline() {
     return () => ro.disconnect();
   }, []);
 
-  const st = S(); const cam = st.active(); const tl = st.project.timeline; const fps = st.project.fps;
+  const st = S(); const proj = st.project; const cams = proj.cameras.filter(c => !st.ui.hidden['cam:' + c.id]); const tl = proj.timeline; const fps = proj.fps;
   const dur = tl.duration;
   const fitPxPerSec = Math.max(4, (viewW - LEFT - RIGHT) / dur);
   const pxPerSec = fitPxPerSec * zoom;
   const contentW = Math.max(viewW, LEFT + dur * pxPerSec + RIGHT);
   const x = (t: number) => LEFT + t * pxPerSec;
+  const barW = Math.max(6, dur * pxPerSec);
   const timeFromX = (px: number) => clamp((px - LEFT) / pxPerSec, 0, dur);
   const snap = (t: number) => snapToFrame(t, fps);
 
-  // virtualised ruler ticks
+  const rowsFor = (c: typeof cams[number]): RowDef[] => ([
+    { kind: 'info', label: 'Point of Interest', value: poiPoint(c, tl.playhead).map(v => v.toFixed(1)).join(', ') },
+    { kind: 'ch', label: 'Position', ch: 'position' },
+    { kind: 'ch', label: 'Orientation', ch: 'rotation', lock: !!c.target },
+    { kind: 'ch', label: 'Focal length', ch: 'focalLength' },
+  ]);
+
+  let yCur = TOP_H + 8;
+  const layout = cams.map(c => {
+    const headerY = yCur; yCur += TRACK_H;
+    const exp = !!expanded[c.id];
+    const defs = exp ? rowsFor(c) : [];
+    const rows = defs.map(def => { const ry = yCur; yCur += ROW_H; return { def, ry }; });
+    yCur += GAP;
+    return { c, headerY, exp, rows };
+  });
+  const H = yCur + 4;
+
   const pxPerFrame = pxPerSec / fps;
   const minorStep = niceFrameStep(pxPerFrame, fps, 6);
   const labelStep = niceFrameStep(pxPerFrame, fps, 70);
@@ -43,14 +61,16 @@ export default function Timeline() {
   const fFrom = Math.max(0, Math.floor((scrollLeft - LEFT - 40) / pxPerFrame));
   const fTo = Math.min(durFrames, Math.ceil((scrollLeft + viewW - LEFT + 40) / pxPerFrame));
   const ticks: { f: number; label: boolean }[] = [];
-  for (let f = Math.floor(fFrom / minorStep) * minorStep; f <= fTo; f += minorStep) {
-    if (f < 0) continue; ticks.push({ f, label: f % labelStep === 0 });
-  }
+  for (let f = Math.floor(fFrom / minorStep) * minorStep; f <= fTo; f += minorStep) { if (f >= 0) ticks.push({ f, label: f % labelStep === 0 }); }
 
   const svgPx = (e: React.PointerEvent) => e.clientX - (e.currentTarget as SVGElement).getBoundingClientRect().left;
   const onDown = (e: React.PointerEvent) => {
-    const keyId = (e.target as SVGElement).getAttribute('data-key');
+    const el = e.target as SVGElement;
+    const toggle = el.getAttribute('data-toggle');
+    if (toggle) { setExpanded(x0 => ({ ...x0, [toggle]: !x0[toggle] })); return; }
+    const keyId = el.getAttribute('data-key'); const camId = el.getAttribute('data-cam');
     (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
+    if (camId && camId !== proj.activeCameraId) S().selectCamera(camId);
     if (keyId) { drag.current = { mode: 'key', keyId }; S().selectKey(keyId); }
     else { drag.current = { mode: 'scrub' }; S().setPlayhead(snap(timeFromX(svgPx(e)))); }
   };
@@ -62,9 +82,15 @@ export default function Timeline() {
   const onUp = () => { drag.current = null; };
   const onDbl = (e: React.MouseEvent) => { const id = (e.target as SVGElement).getAttribute('data-key'); if (id) S().removeKey(id); };
 
-  const laneY = (i: number) => TOP_H + 8 + i * LANE_H;
+  const diamond = (k: Keyframe, cx: number, cy: number, camId: string, half: number) => {
+    const sel = k.id === st.ui.selectedKeyId;
+    return <rect key={k.id} data-key={k.id} data-cam={camId} x={cx - half} y={cy - half} width={half * 2} height={half * 2}
+      transform={`rotate(45 ${cx} ${cy})`} fill="#f5c400" stroke={sel ? '#ffffff' : '#8a6d00'} strokeWidth={sel ? 1.6 : 1} style={{ cursor: 'grab' }} />;
+  };
+
   const playing = tl.playing;
   const durInputVal = durUnit === 's' ? +dur.toFixed(2) : Math.round(dur * fps);
+  const phx = x(tl.playhead);
 
   return (
     <div id="timeline">
@@ -82,7 +108,7 @@ export default function Timeline() {
         <div className="tl-spacer" />
         <label className="tl-field">fps
           <select value={fps} onChange={e => S().setFps(+e.target.value)}>
-            {FPS_CHOICES.map(f => <option key={f} value={f}>{f}</option>)}
+            {[24, 25, 30, 60].map(f => <option key={f} value={f}>{f}</option>)}
           </select>
         </label>
         <label className="tl-field">Duration
@@ -95,49 +121,61 @@ export default function Timeline() {
         </label>
       </div>
 
-      <div className="tl-body" style={{ height: H }}>
-        <div className="tl-gutter">
-          {CHANNELS.map((ch, i) => (
-            <div key={ch} className="gl" style={{ top: laneY(i) + LANE_H / 2 - 6 }}>{CH_LABEL[ch]}</div>
-          ))}
-        </div>
-        <div className="tl-scroll" ref={scrollRef} onScroll={e => setScrollLeft((e.currentTarget as HTMLDivElement).scrollLeft)}>
-          <svg id="tl-svg" width={contentW} height={H} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onDoubleClick={onDbl}>
-            <rect x={0} y={0} width={contentW} height={TOP_H} fill="#101315" />
-            {ticks.map(({ f, label }) => {
-              const px = x(f / fps);
-              return (
-                <g key={f}>
-                  <line x1={px} y1={label ? TOP_H - 8 : TOP_H - 4} x2={px} y2={label ? H : TOP_H} stroke={label ? '#232a2f' : '#1a1e21'} />
-                  {label && <text x={px + 3} y={13} fill="#6b747c" fontSize={9} fontFamily="monospace">{toTimecode(f / fps, fps)}</text>}
-                </g>
-              );
-            })}
-            {CHANNELS.map((ch, i) => {
-              const y = laneY(i); const ks = keysOf(cam, ch); const locked = ch === 'rotation' && cam.target;
-              return (
-                <g key={ch}>
-                  <line x1={0} y1={y + LANE_H - 1} x2={contentW} y2={y + LANE_H - 1} stroke="#1a1e21" />
-                  {locked && <rect x={0} y={y} width={contentW} height={LANE_H - 1} fill="rgba(242,163,60,.05)" />}
-                  {ks.length > 1 && <line x1={x(ks[0].time)} y1={y + LANE_H / 2} x2={x(ks[ks.length - 1].time)} y2={y + LANE_H / 2} stroke={CH_COLOR[ch]} strokeOpacity={0.4} strokeWidth={1.5} />}
-                  {ks.map(k => {
-                    const kx = x(k.time), ky = y + LANE_H / 2; const sel = k.id === st.ui.selectedKeyId;
-                    const fill = k.source !== 'manual' ? '#f2a33c' : CH_COLOR[ch];
-                    return <rect key={k.id} data-key={k.id} x={kx - 6} y={ky - 6} width={12} height={12}
-                      transform={`rotate(45 ${kx} ${ky})`} fill={fill} fillOpacity={sel ? 1 : 0.85}
-                      stroke={sel ? '#fff' : '#000'} strokeOpacity={sel ? 0.9 : 0.3} strokeWidth={sel ? 1.5 : 1} style={{ cursor: 'grab' }} />;
-                  })}
-                </g>
-              );
-            })}
-            <line x1={x(tl.playhead)} y1={0} x2={x(tl.playhead)} y2={H} stroke="#f2a33c" strokeWidth={1.5} />
-            <path d={`M${x(tl.playhead) - 6},0 L${x(tl.playhead) + 6},0 L${x(tl.playhead)},9 Z`} fill="#f2a33c" />
-          </svg>
-        </div>
+      <div className="tl-scroll" ref={scrollRef} style={{ flex: 1 }} onScroll={e => setScrollLeft((e.currentTarget as HTMLDivElement).scrollLeft)}>
+        <svg id="tl-svg" width={contentW} height={H} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onDoubleClick={onDbl}>
+          <rect x={0} y={0} width={contentW} height={TOP_H} fill="#101315" />
+          {ticks.map(({ f, label }) => {
+            const px = x(f / fps);
+            return (
+              <g key={f}>
+                <line x1={px} y1={label ? TOP_H - 8 : TOP_H - 4} x2={px} y2={label ? H : TOP_H} stroke={label ? '#232a2f' : '#1a1e21'} />
+                {label && <text x={px + 3} y={13} fill="#6b747c" fontSize={9} fontFamily="monospace">{toTimecode(f / fps, fps)}</text>}
+              </g>
+            );
+          })}
+
+          {layout.map(({ c, headerY, exp, rows }) => {
+            const cy = headerY + TRACK_H / 2; const active = c.id === proj.activeCameraId;
+            const ks = c.keyframes;
+            return (
+              <g key={c.id}>
+                <rect data-cam={c.id} x={LEFT} y={headerY} width={barW} height={TRACK_H} rx={9}
+                  fill={active ? '#a64ce0' : '#4a3a5c'} style={{ cursor: 'pointer' }} />
+                {/* collapsed: one small rectangle per keyframe time (merged) to locate the keys */}
+                {!exp && [...new Set(ks.map(k => Math.round(k.time * 1000)))].map(ms => {
+                  const kx = x(ms / 1000);
+                  return <rect key={ms} x={kx - 3} y={headerY + 9} width={6} height={TRACK_H - 18} rx={2}
+                    fill="#f5c400" stroke="#8a6d00" strokeWidth={1} pointerEvents="none" />;
+                })}
+                <text x={LEFT + 12} y={cy + 4} fill={active ? '#f4ebfb' : '#c3b3d1'} fontSize={11} pointerEvents="none">{exp ? '▾' : '▸'}</text>
+                <text x={LEFT + 28} y={cy + 4} fill={active ? '#f4ebfb' : '#c3b3d1'} fontSize={12} pointerEvents="none">{c.name}</text>
+                <rect data-toggle={c.id} x={LEFT} y={headerY} width={24} height={TRACK_H} fill="none" pointerEvents="all" style={{ cursor: 'pointer' }} />
+
+                {exp && rows.length > 0 && <rect x={LEFT} y={rows[0].ry - 2} width={barW} height={rows.length * ROW_H + 4} rx={6} fill="rgba(166,76,224,0.10)" />}
+                {rows.map(({ def, ry }) => {
+                  const rcy = ry + ROW_H / 2;
+                  const grey = def.kind === 'info' || (def.kind === 'ch' && def.lock);
+                  return (
+                    <g key={def.label}>
+                      <text x={LEFT + 30} y={rcy + 3} fill={grey ? '#6b6270' : '#9aa3ab'} fontSize={10}>{def.label}{def.kind === 'ch' && def.lock ? ' ⚿' : ''}</text>
+                      <line x1={LEFT} y1={ry + ROW_H - 1} x2={LEFT + barW} y2={ry + ROW_H - 1} stroke="#2a2130" />
+                      {def.kind === 'info'
+                        ? <text x={LEFT + 150} y={rcy + 3} fill="#6b6270" fontSize={10} fontFamily="monospace" pointerEvents="none">{def.value}</text>
+                        : keysOf(c, def.ch).map(k => diamond(k, x(k.time), rcy, c.id, 5))}
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })}
+
+          <line x1={phx} y1={TOP_H - 4} x2={phx} y2={H} stroke={PLAYHEAD} strokeWidth={1.5} />
+          <path d={`M${phx - 8},${TOP_H - 12} L${phx + 8},${TOP_H - 12} L${phx},${TOP_H - 1} Z`} fill={PLAYHEAD} />
+        </svg>
       </div>
 
       <div className="tl-zoom">
-        <span className="time-read" style={{ color: 'var(--ink-3)', marginRight: 'auto' }}>Click: scrub · drag a key · Del / double-click: delete · snap to frame</span>
+        <span className="time-read" style={{ color: 'var(--ink-3)', marginRight: 'auto' }}>Click a track's ▸ to reveal its parameters · drag a key · Del / double-click: delete · snap to frame</span>
         <span className="mtn">▁</span>
         <input type="range" min={1} max={30} step={0.1} value={zoom} onChange={e => setZoom(parseFloat(e.target.value))} title="Zoom timeline" />
         <span className="mtn" style={{ fontSize: 15 }}>▂▄█</span>

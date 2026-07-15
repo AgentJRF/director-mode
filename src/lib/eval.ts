@@ -71,6 +71,17 @@ export function evaluate(cam: Camera, t: number): Pose {
 
 export const hasAnim = (cam: Camera) => cam.keyframes.length > 0;
 
+// Point of Interest: the target point, or (free camera) a point along the view direction.
+export function poiPoint(cam: Camera, t: number): Vec3 {
+  if (cam.target) return targetPoint(cam.target);
+  const p = evaluate(cam, t);
+  const pos = new THREE.Vector3(...p.position);
+  const e = new THREE.Euler(THREE.MathUtils.degToRad(p.rotation[0]), THREE.MathUtils.degToRad(p.rotation[1]), THREE.MathUtils.degToRad(p.rotation[2]), 'YXZ');
+  const dir = new THREE.Vector3(0, 0, -1).applyEuler(e);
+  const D = Math.max(2, pos.distanceTo(new THREE.Vector3(0, 0.9, 0)));
+  return pos.addScaledVector(dir, D).toArray() as Vec3;
+}
+
 // spherical helpers around a pivot (orbit)
 export function poseToSpherical(pos: Vec3, pivot: THREE.Vector3) {
   const v = new THREE.Vector3(...pos).sub(pivot);

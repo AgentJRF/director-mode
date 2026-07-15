@@ -1,7 +1,7 @@
 import { useGLTF } from '@react-three/drei';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { PIVOT, S, hasAnim } from '../store';
+import { PIVOT, S, hasAnim, useStore } from '../store';
 import { OBJECT_CENTERS, eulerFromLookAt, clamp } from '../lib/eval';
 import type { Vec3 } from '../types';
 
@@ -38,13 +38,15 @@ export default function Product() {
     }
   }, [data]);
 
+  useStore(s => s.rev);
+  const hidden = S().ui.hidden;
   return (
     <group>
-      <mesh position={[0, 0.25, 0]} scale={[data.footR / 1.15, 1, data.footR / 1.15]} castShadow receiveShadow userData={{ focusPickable: true, objectId: 'pedestal' }}>
+      <mesh position={[0, 0.25, 0]} scale={[data.footR / 1.15, 1, data.footR / 1.15]} castShadow receiveShadow userData={{ focusPickable: true, objectId: 'pedestal' }} visible={!hidden.pedestal}>
         <cylinderGeometry args={[1.15, 1.35, 0.5, 48]} />
         <meshStandardMaterial color="#1a1e22" roughness={0.6} metalness={0.3} />
       </mesh>
-      <primitive object={scene} scale={data.s} position={data.pos} />
+      <primitive object={scene} scale={data.s} position={data.pos} visible={!hidden.product} />
     </group>
   );
 }

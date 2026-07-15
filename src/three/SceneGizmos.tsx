@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import * as THREE from 'three';
 import { Line, PivotControls } from '@react-three/drei';
 import { useStore, S, upsertKeyOn } from '../store';
-import { keysOf, evalChannel, targetPoint, lerp, round, evaluate } from '../lib/eval';
+import { keysOf, evalChannel, lerp, round, evaluate, poiPoint } from '../lib/eval';
 import type { Vec3 } from '../types';
 
 const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
@@ -25,8 +25,10 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
 
   useFrame(() => {
     const rc = renderCamRef.current; if (!rc) return;
+    const poi = poiPoint(S().active(), S().project.timeline.playhead);
     frustumCam.position.copy(rc.position); frustumCam.quaternion.copy(rc.quaternion);
     frustumCam.fov = rc.fov; frustumCam.aspect = S().project.canvas.width / S().project.canvas.height;
+    frustumCam.far = Math.max(0.5, rc.position.distanceTo(new THREE.Vector3(poi[0], poi[1], poi[2])));
     frustumCam.updateProjectionMatrix(); frustumCam.updateMatrixWorld(true); helper.update();
     // NB: the camera body is a child of PivotControls (positioned by `matrix` at the camera
     // pose). It must stay at local origin — do NOT copy the world camera transform onto it.
@@ -109,11 +111,6 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
           </mesh>
         );
       })}
-      {cam.target?.type === 'point' && (
-        <mesh position={targetPoint(cam.target)}>
-          <sphereGeometry args={[0.08, 16, 16]} /><meshBasicMaterial color="#5b9dd9" />
-        </mesh>
-      )}
     </>
   );
 }

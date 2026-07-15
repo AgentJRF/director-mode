@@ -36,6 +36,7 @@ interface UI {
   gizmoMode: 'translate' | 'rotate';
   gizmoSpace: 'world' | 'local';
   focusPicking: boolean;
+  hidden: Record<string, boolean>;
 }
 
 interface StoreState {
@@ -56,8 +57,10 @@ interface StoreState {
   setFps: (f: number) => void;
   setCanvas: (w: number, h: number) => void;
   setOptic: (k: 'focalLength' | 'aperture' | 'motionBlurShutter', v: number) => void;
+  editPose: (channel: 'position' | 'rotation', i: number, value: number) => void;
   setFocusPoint: (p: Vec3 | null) => void;
   setFocusPicking: (b: boolean) => void;
+  toggleHidden: (id: string) => void;
   resetFocus: () => void;
   setTarget: (t: Target | null) => void;
   selectKey: (id: string | null) => void;
@@ -94,7 +97,7 @@ export const useStore = create<StoreState>((set, get) => {
 
   return {
     project, rev: 0,
-    ui: { tool: 'select', selectedKeyId: null, poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false },
+    ui: { tool: 'select', selectedKeyId: null, poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, hidden: {} },
     bump, active,
     setTool: t => { get().ui.tool = t; bump(); },
     toast: m => { get().ui.toast = m; bump(); setTimeout(() => { if (get().ui.toast === m) { get().ui.toast = ''; bump(); } }, 2600); },
@@ -106,8 +109,17 @@ export const useStore = create<StoreState>((set, get) => {
     setFps: f => { get().project.fps = clamp(Math.round(f), 1, 120); bump(); },
     setCanvas: (w, h) => { get().project.canvas = { width: w, height: h }; bump(); },
     setOptic: (k, v) => { active().optics[k] = v; bump(); },
+    editPose: (channel, i, value) => {
+      const cam = active(); const t = get().project.timeline.playhead;
+      if (channel === 'rotation' && cam.target) return; // rotation owned by target
+      const cur = (evaluate(cam, t)[channel] as Vec3).slice() as Vec3; cur[i] = value;
+      if (keysOf(cam, channel).length) upsertKeyOn(cam, channel, cur, t, 'manual');
+      else cam.transform[channel] = cur;
+      bump();
+    },
     setFocusPoint: p => { active().optics.focusPoint = p; bump(); },
     setFocusPicking: b => { get().ui.focusPicking = b; bump(); },
+    toggleHidden: id => { const h = get().ui.hidden; h[id] = !h[id]; bump(); },
     resetFocus: () => { const o = active().optics; o.focusPoint = null; o.aperture = DEFAULT_APERTURE; get().ui.focusPicking = false; bump(); },
     setTarget: t => { const c = active(); c.target = t; if (t) c.keyframes = c.keyframes.filter(k => k.channel !== 'rotation'); bump(); },
     selectKey: id => { get().ui.selectedKeyId = id; bump(); },

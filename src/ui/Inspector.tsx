@@ -1,7 +1,20 @@
 import { S, hasAnim, DEFAULT_APERTURE } from '../store';
 import { useRev } from './bits';
-import { evaluate, keysOf, EASE_LIST, EASES, round } from '../lib/eval';
+import Outliner from './Outliner';
+import { evaluate, keysOf, EASE_LIST, EASES, round, poiPoint } from '../lib/eval';
 import { SCENE_OBJECTS } from '../lib/eval';
+
+function Vec3Row({ label, value, step = 0.1, disabled, onChange }:
+  { label: string; value: number[]; step?: number; disabled?: boolean; onChange: (i: number, v: number) => void }) {
+  return (
+    <div className={'row' + (disabled ? ' locked' : '')}>
+      <label>{label}</label>
+      <div className="vec3">{['X', 'Y', 'Z'].map((lb, i) => (
+        <input key={lb} type="number" step={step} value={round(value[i], 2)} onChange={e => onChange(i, parseFloat(e.target.value) || 0)} />
+      ))}</div>
+    </div>
+  );
+}
 import type { Camera, Channel, Ease, Keyframe } from '../types';
 
 const CH_LABEL: Record<Channel, string> = { position: 'POS', rotation: 'ROT', focalLength: 'FOCAL' };
@@ -65,17 +78,16 @@ export default function Inspector() {
   const p = evaluate(cam, st.project.timeline.playhead);
   return (
     <div id="inspector">
-      <div className="insp-h">Cameras</div>
-      <div className="sect">
-        {st.project.cameras.map(c => (
-          <div key={c.id} className={'cam-item' + (c.id === st.project.activeCameraId ? ' sel' : '')} onClick={() => st.selectCamera(c.id)}>
-            <span style={{ fontSize: 13 }}>🎥</span><span className="nm">{c.name}</span><span className="st">{hasAnim(c) ? 'anim' : 'shot'}</span>
-          </div>
-        ))}
-        <button className="btn-sm btn-full" style={{ marginTop: 8 }} onClick={() => st.addCamera()}>+ New camera</button>
-      </div>
+      <Outliner />
 
       {selKey && <KeyInspector cam={cam} k={selKey} />}
+
+      <div className="sect">
+        <div className="sect-t">Transform<span className="val">{st.project.timeline.playhead.toFixed(2)}s</span></div>
+        <Vec3Row label="Position" value={p.position} onChange={(i, v) => st.editPose('position', i, v)} />
+        <Vec3Row label="Rotation" value={p.rotation} step={1} disabled={!!cam.target} onChange={(i, v) => st.editPose('rotation', i, v)} />
+        <div className="row"><label>Point of interest</label><span className="val">{poiPoint(cam, st.project.timeline.playhead).map(v => v.toFixed(1)).join(', ')}</span></div>
+      </div>
 
       <div className="sect">
         <div className="sect-t">Optics</div>
