@@ -22,6 +22,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
   // frustum showing what the (state-driven) render camera sees
   const frustumCam = useMemo(() => new THREE.PerspectiveCamera(45, 1.777, 0.12, 2.4), []);
   const helper = useMemo(() => new THREE.CameraHelper(frustumCam), [frustumCam]);
+  const camAxes = useMemo(() => new THREE.AxesHelper(0.7), []); // camera "gizmo" indicator for multiview
   const bodyRef = useRef<THREE.Group>(null);
 
   useFrame(() => {
@@ -156,6 +157,17 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
           </group>
         );
       })}
+      {/* Multiview 3D markers (drei <Html>/PivotControls only track the default camera, so they are
+          replaced by scene meshes that render correctly in every quadrant). */}
+      {multiview && (
+        <>
+          <primitive object={camAxes} position={evaluate(cam, st.project.timeline.playhead).position as Vec3} />
+          <mesh position={poiPoint(cam, st.project.timeline.playhead)} userData={{ gizmo: { kind: 'poi' } }}>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            <meshBasicMaterial color="#5b9dd9" />
+          </mesh>
+        </>
+      )}
     </>
   );
 }

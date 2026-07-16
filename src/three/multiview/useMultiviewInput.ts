@@ -2,11 +2,11 @@ import { useThree } from '@react-three/fiber';
 import { useEffect, type RefObject } from 'react';
 import * as THREE from 'three';
 import { S, upsertKeyOn } from '../../store';
-import { keysOf, handleOffset, evaluate, round } from '../../lib/eval';
+import { keysOf, handleOffset, evaluate, poiPoint, round } from '../../lib/eval';
 import type { Vec3 } from '../../types';
 import { quadrantFor, subRectFor, ndcInSub, orthoCams, orthoState, planeAndAxesFor, type ViewId, type OrthoId, type SubRect } from './views';
 
-type Kind = 'key' | 'in' | 'out' | 'camera';
+type Kind = 'key' | 'in' | 'out' | 'camera' | 'poi';
 type GizmoTag = { id?: string; kind: Kind };
 type DragState = { id?: string; kind: Kind; viewId: ViewId };
 
@@ -97,6 +97,31 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
           const world = [p.x, p.y, p.z]; axes.forEach(a => { np[a] = round(world[a], 3); });
         }
         if (keysOf(c, 'position').length) upsertKeyOn(c, 'position', np, t, 'manual'); else c.transform.position = np;
+        S().bump();
+        return;
+      }
+
+      // point of interest: move the look-at point at the playhead
+      if (d.kind === 'poi') {
+        const t = S().project.timeline.playhead;
+        if (c.target?.type === 'object') return; // aim locked by an object target
+        if (!c.target || c.target.type !== 'point') S().setTarget({ type: 'point', point: [...poiPoint(c, t)] as Vec3 });
+        const cc = S().active(); const ref = poiPoint(cc, t); const np = [...ref] as Vec3;
+        if (d.viewId === 'persp') {
+          if (e.shiftKey) {
+            const fwd = new THREE.Vector3(); cam.getWorldDirection(fwd); fwd.y = 0; if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1); fwd.normalize();
+            if (!rc.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(fwd, new THREE.Vector3(...ref)), p)) return;
+            np[1] = round(p.y, 3);
+          } else {
+            if (!rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -ref[1]), p)) return;
+            np[0] = round(p.x, 3); np[2] = round(p.z, 3);
+          }
+        } else {
+          const { plane, axes } = planeAndAxesFor(d.viewId as OrthoId, ref);
+          if (!rc.ray.intersectPlane(plane, p)) return;
+          const world = [p.x, p.y, p.z]; axes.forEach(a => { np[a] = round(world[a], 3); });
+        }
+        if (keysOf(cc, 'poi').length) upsertKeyOn(cc, 'poi', np, t, 'manual'); else if (cc.target?.type === 'point') cc.target.point = np;
         S().bump();
         return;
       }
