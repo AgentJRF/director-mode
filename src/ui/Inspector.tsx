@@ -2,9 +2,8 @@ import { S, DEFAULT_APERTURE } from '../store';
 import { useRev } from './bits';
 import Outliner from './Outliner';
 import { evaluate, keysOf, EASE_LIST, EASES, round, poiPoint } from '../lib/eval';
-import { SCENE_OBJECTS } from '../lib/eval';
 
-import type { Camera, Channel, Ease, Keyframe, Vec3 } from '../types';
+import type { Channel, Ease, Keyframe, Vec3 } from '../types';
 
 // Clickable keyframe marker: ◆ = key at playhead, dim ◆ = animated elsewhere, ◇ = no keys.
 // Click toggles a key at the playhead for this channel; disabled when the channel is locked.
@@ -57,7 +56,7 @@ function EaseCurve({ ease }: { ease: Ease }) {
   );
 }
 
-function KeyInspector({ cam, k }: { cam: Camera; k: Keyframe }) {
+function KeyInspector({ k }: { k: Keyframe }) {
   const st = S();
   return (
     <div className="sect" style={{ background: 'var(--panel-2)' }}>
@@ -93,12 +92,13 @@ export default function Inspector() {
     <div id="inspector">
       <Outliner />
 
-      {selKey && <KeyInspector cam={cam} k={selKey} />}
+      {selKey && <KeyInspector k={selKey} />}
 
       <div className="sect">
         <div className="sect-t">Transform</div>
         <Vec3Row label="Position" ch="position" value={p.position} onChange={(i, v) => st.editPose('position', i, v)} />
         <Vec3Row label="Rotation" ch="rotation" value={p.rotation} step={1} disabled={!!cam.target} onChange={(i, v) => st.editPose('rotation', i, v)} />
+        {cam.target && <div className="lock-note">⚿ Orientation pilotée par la cible.</div>}
         <Vec3Row label="POI" ch="poi" value={poiPoint(cam, st.project.timeline.playhead)} disabled={cam.target?.type === 'object'} onChange={(i, v) => st.editPoi(i, v)} />
       </div>
 
@@ -118,33 +118,6 @@ export default function Inspector() {
           <button className={'btn-sm' + (cam.optics.focusPoint || cam.optics.aperture !== DEFAULT_APERTURE ? '' : ' locked')}
             title="General focus + default aperture" onClick={() => st.resetFocus()}>↺ Reset</button>
         </div>
-      </div>
-
-      <div className="sect">
-        <div className="sect-t">Target{cam.target && <span className="st" style={{ color: 'var(--blue)' }}>active</span>}</div>
-        <div className={'cam-item' + (cam.target?.type === 'point' ? ' sel' : '')} onClick={() => st.setTarget({ type: 'point', point: [0, 0.9, 0] })}>
-          <span style={{ fontSize: 13 }}>✛</span><span className="nm">Free point</span>
-          <span className="st" style={{ color: cam.target?.type === 'point' ? 'var(--blue)' : 'var(--ink-3)' }}>{cam.target?.type === 'point' ? 'target' : 'default'}</span>
-        </div>
-        <button className={'btn-sm btn-full' + (st.ui.tool === 'target' ? ' amber' : '')} style={{ marginTop: 6 }}
-          onClick={() => st.setTool(st.ui.tool === 'target' ? 'select' : 'target')}>
-          ◎ {st.ui.tool === 'target' ? 'Picking… click an object' : 'Pick in view'}
-        </button>
-        <div className="sect-t" style={{ marginTop: 12 }}>Scene objects</div>
-        {SCENE_OBJECTS.map(o => {
-          const on = cam.target?.type === 'object' && cam.target.objectId === o.id;
-          return (
-            <div key={o.id} className={'cam-item' + (on ? ' sel' : '')} onClick={() => st.setTarget({ type: 'object', objectId: o.id })}>
-              <span style={{ fontSize: 13 }}>◈</span><span className="nm">{o.label}</span>{on && <span className="st" style={{ color: 'var(--blue)' }}>target</span>}
-            </div>
-          );
-        })}
-        {cam.target && (
-          <>
-            <div className="lock-note">⚿ Rotation owned by the target — manual editing locked.</div>
-            <button className="btn-sm btn-full" style={{ marginTop: 8 }} onClick={() => st.setTarget(null)}>Remove target</button>
-          </>
-        )}
       </div>
 
     </div>

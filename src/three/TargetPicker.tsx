@@ -2,10 +2,10 @@ import { useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
 import * as THREE from 'three';
 import { useStore, S } from '../store';
-import type { Vec3 } from '../types';
 
-// Target picker: with the Target tool active, clicking the viewport sets the camera's
-// look-at target to the clicked object (product / pedestal) or to a free point (floor).
+// Target picker: with the Target tool active, clicking an object (product / pedestal) in the
+// viewport sets it as the camera's look-at target. Clicking empty space does nothing — a free
+// look-at point is set via the POI channel (Transform), not here.
 export default function TargetPicker() {
   const { gl, camera, scene } = useThree();
   useStore(s => s.rev);
@@ -24,9 +24,9 @@ export default function TargetPicker() {
       if (!hits.length) return;
       let o: THREE.Object3D | null = hits[0].object; let objectId: string | undefined;
       while (o) { if (o.userData && o.userData.objectId) { objectId = o.userData.objectId; break; } o = o.parent; }
-      if (objectId) { S().setTarget({ type: 'object', objectId }); S().toast('Target: ' + objectId); }
-      else { const p = hits[0].point; S().setTarget({ type: 'point', point: [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)] as Vec3 }); S().toast('Target: free point'); }
-      S().setTool('select'); // one-shot: leave picking mode after a pick
+      if (!objectId) { S().toast('Cliquez un objet'); return; } // objects only — stay in picking mode
+      S().setTarget({ type: 'object', objectId }); S().toast('Target: ' + objectId);
+      S().setTool('select'); // one-shot: leave picking mode after a successful pick
     };
     dom.style.cursor = 'crosshair';
     dom.addEventListener('pointerdown', down);

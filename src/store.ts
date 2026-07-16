@@ -36,6 +36,7 @@ interface UI {
   gizmoMode: 'translate' | 'rotate';
   gizmoSpace: 'world' | 'local';
   focusPicking: boolean;
+  targetSelected: boolean;
   hidden: Record<string, boolean>;
 }
 
@@ -65,6 +66,7 @@ interface StoreState {
   toggleHidden: (id: string) => void;
   resetFocus: () => void;
   setTarget: (t: Target | null) => void;
+  selectTarget: (b: boolean) => void;
   selectKey: (id: string | null) => void;
   setSelectedKeys: (ids: string[]) => void;
   removeKeys: (ids: string[]) => void;
@@ -101,11 +103,11 @@ export const useStore = create<StoreState>((set, get) => {
 
   return {
     project, rev: 0,
-    ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, hidden: {} },
+    ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, targetSelected: false, hidden: {} },
     bump, active,
     setTool: t => { get().ui.tool = t; bump(); },
     toast: m => { get().ui.toast = m; bump(); setTimeout(() => { if (get().ui.toast === m) { get().ui.toast = ''; bump(); } }, 2600); },
-    selectCamera: id => { get().project.activeCameraId = id; get().ui.selectedKeyIds = []; bump(); },
+    selectCamera: id => { get().project.activeCameraId = id; get().ui.selectedKeyIds = []; get().ui.targetSelected = false; bump(); },
     addCamera: () => { const p = get().project; const c = makeCamera('Camera ' + String(p.cameras.length + 1).padStart(2, '0')); p.cameras.push(c); p.activeCameraId = c.id; bump(); },
     setPlayhead: t => { get().project.timeline.playhead = clamp(t, 0, get().project.timeline.duration); bump(); },
     setPlaying: p => { get().project.timeline.playing = p; bump(); },
@@ -156,8 +158,10 @@ export const useStore = create<StoreState>((set, get) => {
       const c = active(); c.target = t;
       if (t) c.keyframes = c.keyframes.filter(k => k.channel !== 'rotation'); // rotation now owned by the target
       if (!t || t.type === 'object') c.keyframes = c.keyframes.filter(k => k.channel !== 'poi'); // POI locked/derived here
+      get().ui.targetSelected = false; // changing/clearing the target deselects the badge
       bump();
     },
+    selectTarget: b => { get().ui.targetSelected = b; bump(); },
     selectKey: id => { get().ui.selectedKeyIds = id ? [id] : []; bump(); },
     setSelectedKeys: ids => { get().ui.selectedKeyIds = ids; bump(); },
     removeKeys: ids => { const c = active(); const set = new Set(ids); c.keyframes = c.keyframes.filter(k => !set.has(k.id)); get().ui.selectedKeyIds = get().ui.selectedKeyIds.filter(id => !set.has(id)); bump(); },
