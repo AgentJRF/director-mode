@@ -9,6 +9,7 @@ import HUD from './ui/HUD';
 import ViewPills from './ui/ViewPills';
 import Modals from './ui/Modals';
 import { Toast, Loading } from './ui/Toast';
+import ErrorBoundary from './ui/ErrorBoundary';
 import SplineOverlay from './three/SplineOverlay';
 import { S, useStore } from './store';
 import { applyLutToCanvas } from './lib/lut';
@@ -57,7 +58,9 @@ export default function App() {
       <div id="stage">
         <div id="viewport-frame" ref={frameRef}>
           <div id="canvas-wrap" ref={wrapRef}>
-            <Scene />
+            <ErrorBoundary label="Scene 3D">
+              <Scene />
+            </ErrorBoundary>
             <SplineOverlay />
           </div>
         </div>
