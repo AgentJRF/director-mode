@@ -43,6 +43,9 @@ export default function MultiviewRenderer({ sceneCamRef }: { sceneCamRef: RefObj
     gl.setScissorTest(false);
     gl.clear(); // clear whole framebuffer once (scissor off)
     gl.setScissorTest(true);
+    // The scene fog (tuned for the close camera POV) would fully hide meshes seen by the ortho
+    // cameras, which sit ~200 units away. Disable it for the editor quad, restore after.
+    const fog = scene.fog; scene.fog = null;
 
     // GL viewport origin is bottom-left → top row sits at y=hh, bottom row at y=0.
     const quads: [THREE.Camera, number, number][] = [
@@ -57,6 +60,7 @@ export default function MultiviewRenderer({ sceneCamRef }: { sceneCamRef: RefObj
       gl.render(scene, cam);
     }
 
+    scene.fog = fog;
     gl.setScissorTest(false);
     gl.setViewport(0, 0, w, h);
     gl.autoClear = true;
