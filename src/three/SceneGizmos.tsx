@@ -70,15 +70,31 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
     const dom = gl.domElement; const rc = new THREE.Raycaster();
     const move = (e: PointerEvent) => {
       const dt = dragTarget.current; if (!dt) return;
-      const k = S().active().keyframes.find(k => k.id === dt.id); if (!k || !Array.isArray(k.value)) return;
+      const c = S().active();
+      const k = c.keyframes.find(k => k.id === dt.id); if (!k || !Array.isArray(k.value)) return;
       const kv = k.value as Vec3;
       const r = dom.getBoundingClientRect();
       const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       rc.setFromCamera(ndc, camera);
-      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -kv[1]); const p = new THREE.Vector3();
-      if (!rc.ray.intersectPlane(plane, p)) return;
-      if (dt.kind === 'key') { S().setKeyValueComp(k.id, 0, round(p.x, 3)); S().setKeyValueComp(k.id, 2, round(p.z, 3)); }
-      else { S().setKeyTangent(k.id, dt.kind, [round(p.x - kv[0], 3), 0, round(p.z - kv[2], 3)]); }
+      const p = new THREE.Vector3();
+      // current tangent offset (for handles), to preserve axes we're not editing
+      let off: Vec3 = [0, 0, 0];
+      if (dt.kind !== 'key') { const pk2 = keysOf(c, 'position'); const i = pk2.findIndex(x => x.id === k.id); off = handleOffset(pk2, i, dt.kind); }
+      if (e.shiftKey) {
+        // vertical (Y): intersect a camera-facing vertical plane through the drag target
+        const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.y = 0; if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1); fwd.normalize();
+        const anchor = dt.kind === 'key' ? new THREE.Vector3(...kv) : new THREE.Vector3(kv[0] + off[0], kv[1] + off[1], kv[2] + off[2]);
+        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(fwd, anchor);
+        if (!rc.ray.intersectPlane(plane, p)) return;
+        if (dt.kind === 'key') S().setKeyValueComp(k.id, 1, round(p.y, 3));
+        else S().setKeyTangent(k.id, dt.kind, [off[0], round(p.y - kv[1], 3), off[2]]);
+      } else {
+        // horizontal (X/Z): plane at the key's height
+        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -kv[1]);
+        if (!rc.ray.intersectPlane(plane, p)) return;
+        if (dt.kind === 'key') { S().setKeyValueComp(k.id, 0, round(p.x, 3)); S().setKeyValueComp(k.id, 2, round(p.z, 3)); }
+        else S().setKeyTangent(k.id, dt.kind, [round(p.x - kv[0], 3), off[1], round(p.z - kv[2], 3)]);
+      }
     };
     const up = () => { if (dragTarget.current) { dragTarget.current = null; S().setGizmoDragging(false); } };
     dom.addEventListener('pointermove', move); dom.addEventListener('pointerup', up);
