@@ -9,12 +9,26 @@ export type OrthoId = 'top' | 'front' | 'side';
 // Interactive framing per ortho view (module state — mutated by input, read by the renderer).
 export interface OrthoState { center: THREE.Vector3; halfHeight: number; }
 export const orthoState: Record<OrthoId, OrthoState> = {
-  top: { center: new THREE.Vector3(0, 0, 0), halfHeight: 5 },
-  front: { center: new THREE.Vector3(0, 1, 0), halfHeight: 5 },
-  side: { center: new THREE.Vector3(0, 1, 0), halfHeight: 5 },
+  top: { center: new THREE.Vector3(0, 0, 0), halfHeight: 8 },
+  front: { center: new THREE.Vector3(0, 1, 0), halfHeight: 8 },
+  side: { center: new THREE.Vector3(0, 1, 0), halfHeight: 8 },
+};
+
+// Ortho cameras are module singletons so the renderer and the input controller share them
+// (the renderer configures them each frame; input reads their current matrices for picking).
+export const orthoCams: Record<OrthoId, THREE.OrthographicCamera> = {
+  top: new THREE.OrthographicCamera(), front: new THREE.OrthographicCamera(), side: new THREE.OrthographicCamera(),
 };
 
 export interface SubRect { left: number; top: number; w: number; h: number; }
+
+// Sub-rect (client coords) of a given view in the fixed 2×2 layout.
+export function subRectFor(viewId: ViewId, rect: DOMRect): SubRect {
+  const halfW = rect.width / 2, halfH = rect.height / 2;
+  const col = viewId === 'persp' || viewId === 'front' ? 0 : 1;
+  const row = viewId === 'persp' || viewId === 'top' ? 0 : 1;
+  return { left: rect.left + col * halfW, top: rect.top + row * halfH, w: halfW, h: halfH };
+}
 
 // Which quadrant a client point falls in, plus that quadrant's sub-rect (client coords).
 export function quadrantFor(clientX: number, clientY: number, rect: DOMRect): { viewId: ViewId; sub: SubRect } {

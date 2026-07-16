@@ -11,6 +11,7 @@ const ONE = new THREE.Vector3(1, 1, 1);
 
 export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<THREE.PerspectiveCamera | null> }) {
   const rev = useStore(s => s.rev);
+  const multiview = useStore(s => s.ui.multiview);
   const { gl, camera } = useThree();
   const st = S(); const cam = st.active(); const space = st.ui.gizmoSpace;
   const dragTarget = useRef<{ id: string; kind: 'key' | 'in' | 'out' } | null>(null);
@@ -65,8 +66,10 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
   };
   const onDragEnd = () => { gizmoDrag.current = false; frozen.current = null; dragStart.current = null; S().setGizmoDragging(false); };
 
-  // spline keyframe + tangent-handle drag (both constrained to the key's horizontal plane)
+  // spline keyframe + tangent-handle drag (single-view). In multiview, useMultiviewInput owns
+  // input instead (per-quadrant cameras), so this listener set stays off.
   useEffect(() => {
+    if (multiview) return;
     const dom = gl.domElement; const rc = new THREE.Raycaster();
     const move = (e: PointerEvent) => {
       const dt = dragTarget.current; if (!dt) return;
@@ -99,7 +102,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
     const up = () => { if (dragTarget.current) { dragTarget.current = null; S().setGizmoDragging(false); } };
     dom.addEventListener('pointermove', move); dom.addEventListener('pointerup', up);
     return () => { dom.removeEventListener('pointermove', move); dom.removeEventListener('pointerup', up); };
-  }, [gl, camera]);
+  }, [gl, camera, multiview]);
 
   const pk = keysOf(cam, 'position');
   const pts = useMemo(() => {
@@ -133,14 +136,14 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
         if (i > 0) { const o = handleOffset(pk, i, 'in'); handles.push({ which: 'in', pos: [kv[0] + o[0], kv[1] + o[1], kv[2] + o[2]] }); }
         return (
           <group key={k.id}>
-            <mesh position={kv} onPointerDown={grab('key')}>
+            <mesh position={kv} userData={{ gizmo: { id: k.id, kind: 'key' } }} onPointerDown={multiview ? undefined : grab('key')}>
               <sphereGeometry args={[0.09, 20, 20]} />
               <meshBasicMaterial color={sel ? '#ffffff' : '#f2a33c'} />
             </mesh>
             {handles.map(h => (
               <group key={h.which}>
                 <Line points={[kv, h.pos]} color="#29b6f6" lineWidth={1.5} transparent opacity={0.7} />
-                <mesh position={h.pos} onPointerDown={grab(h.which)}
+                <mesh position={h.pos} userData={{ gizmo: { id: k.id, kind: h.which } }} onPointerDown={multiview ? undefined : grab(h.which)}
                   onDoubleClick={e => { e.stopPropagation(); S().setKeyTangent(k.id, h.which, null); }}>
                   <sphereGeometry args={[0.06, 16, 16]} />
                   <meshBasicMaterial color="#29b6f6" />

@@ -1,17 +1,17 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, type RefObject } from 'react';
+import { useEffect, type RefObject } from 'react';
 import * as THREE from 'three';
 import { PIVOT } from '../../store';
-import { orthoState, configOrtho } from './views';
+import { orthoState, configOrtho, orthoCams } from './views';
+import useMultiviewInput from './useMultiviewInput';
 
 // Takes over the render loop (useFrame priority 1 disables r3f auto-render) and paints the single
 // shared scene into four scissored quadrants with four cameras. Mounted only while multiview is on;
 // on unmount, r3f resumes normal single-camera rendering.
 export default function MultiviewRenderer({ sceneCamRef }: { sceneCamRef: RefObject<THREE.PerspectiveCamera | null> }) {
   const { gl, scene, size } = useThree();
-  const orthos = useMemo(() => ({
-    top: new THREE.OrthographicCamera(), front: new THREE.OrthographicCamera(), side: new THREE.OrthographicCamera(),
-  }), []);
+  const orthos = orthoCams;
+  useMultiviewInput(sceneCamRef);
 
   // frame the ortho views on the product pivot once on entry
   useEffect(() => {
