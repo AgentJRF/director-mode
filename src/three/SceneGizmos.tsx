@@ -22,7 +22,6 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
   // frustum showing what the (state-driven) render camera sees
   const frustumCam = useMemo(() => new THREE.PerspectiveCamera(45, 1.777, 0.12, 2.4), []);
   const helper = useMemo(() => new THREE.CameraHelper(frustumCam), [frustumCam]);
-  const camAxes = useMemo(() => new THREE.AxesHelper(0.7), []); // camera "gizmo" indicator for multiview
   const bodyRef = useRef<THREE.Group>(null);
 
   useFrame(() => {
@@ -161,26 +160,29 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
           replaced by scene meshes that render correctly in every quadrant). */}
       {multiview && (() => {
         const poi = poiPoint(cam, st.project.timeline.playhead);
+        const camPose = evaluate(cam, st.project.timeline.playhead).position as Vec3;
         const L = 0.7, AX: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], COL = ['#ff5a5a', '#5aff7a', '#5a9dff'];
+        // Same 3-axis translate gizmo as scene-mode PivotControls, but per-view: grab an arrow tip
+        // to move along that world axis; PivotControls itself can't work under scissor multiview.
+        const arrows = (o: Vec3, kind: 'camera-axis' | 'poi-axis') => AX.map((d, ai) => {
+          const tip: Vec3 = [o[0] + d[0] * L, o[1] + d[1] * L, o[2] + d[2] * L];
+          return (
+            <group key={kind + ai}>
+              <Line points={[o, tip]} color={COL[ai]} lineWidth={2} />
+              <mesh position={tip} userData={{ gizmo: { kind, axis: ai } }}>
+                <sphereGeometry args={[0.06, 12, 12]} /><meshBasicMaterial color={COL[ai]} />
+              </mesh>
+            </group>
+          );
+        });
         return (
           <>
-            {/* camera "gizmo" indicator (grab the camera body to translate on the view plane) */}
-            <primitive object={camAxes} position={evaluate(cam, st.project.timeline.playhead).position as Vec3} />
-            {/* POI: centre handle (view-plane drag) + 3-axis arrows (axis-constrained drag) */}
+            {arrows(camPose, 'camera-axis')}
+            {arrows(poi, 'poi-axis')}
+            {/* POI centre handle (view-plane drag) */}
             <mesh position={poi} userData={{ gizmo: { kind: 'poi' } }}>
               <sphereGeometry args={[0.07, 14, 14]} /><meshBasicMaterial color="#5b9dd9" />
             </mesh>
-            {AX.map((d, ai) => {
-              const tip: Vec3 = [poi[0] + d[0] * L, poi[1] + d[1] * L, poi[2] + d[2] * L];
-              return (
-                <group key={ai}>
-                  <Line points={[poi, tip]} color={COL[ai]} lineWidth={2} />
-                  <mesh position={tip} userData={{ gizmo: { kind: 'poi-axis', axis: ai } }}>
-                    <sphereGeometry args={[0.06, 12, 12]} /><meshBasicMaterial color={COL[ai]} />
-                  </mesh>
-                </group>
-              );
-            })}
           </>
         );
       })()}

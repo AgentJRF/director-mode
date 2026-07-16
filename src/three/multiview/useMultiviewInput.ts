@@ -6,7 +6,7 @@ import { keysOf, handleOffset, evaluate, poiPoint, round } from '../../lib/eval'
 import type { Vec3 } from '../../types';
 import { quadrantFor, subRectFor, ndcInSub, orthoCams, orthoState, planeAndAxesFor, type ViewId, type OrthoId, type SubRect } from './views';
 
-type Kind = 'key' | 'in' | 'out' | 'camera' | 'poi' | 'poi-axis';
+type Kind = 'key' | 'in' | 'out' | 'camera' | 'camera-axis' | 'poi' | 'poi-axis';
 type GizmoTag = { id?: string; kind: Kind; axis?: number };
 type DragState = { id?: string; kind: Kind; axis?: number; viewId: ViewId };
 
@@ -24,6 +24,14 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
 
     const active = () => S().ui.viewMode === 'scene' && S().ui.multiview;
     const camFor = (v: ViewId): THREE.Camera | null => (v === 'persp' ? sceneCamRef.current : orthoCams[v as OrthoId]);
+    // scalar offset along world axis `ax` (through `ref`) of the point closest to the current ray
+    const axisScalar = (ref: Vec3, ax: number): number => {
+      const U = new THREE.Vector3(ax === 0 ? 1 : 0, ax === 1 ? 1 : 0, ax === 2 ? 1 : 0);
+      const w0 = new THREE.Vector3(...ref).sub(rc.ray.origin);
+      const bb = U.dot(rc.ray.direction), cc2 = rc.ray.direction.dot(rc.ray.direction);
+      const denom = cc2 - bb * bb;
+      return Math.abs(denom) < 1e-6 ? 0 : (bb * rc.ray.direction.dot(w0) - cc2 * U.dot(w0)) / denom;
+    };
     const gizmos = (): THREE.Object3D[] => { const o: THREE.Object3D[] = []; scene.traverse(n => { if ((n.userData as { gizmo?: GizmoTag }).gizmo) o.push(n); }); return o; };
 
     // screen-space pick: nearest tagged gizmo within a px threshold, projected with the view camera
@@ -101,6 +109,17 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
         return;
       }
 
+      // camera axis arrow: translate the camera along one world axis
+      if (d.kind === 'camera-axis') {
+        const t = S().project.timeline.playhead;
+        const ref = evaluate(c, t).position; const ax = d.axis ?? 0;
+        const s = axisScalar(ref, ax);
+        const np = [...ref] as Vec3; np[ax] = round(ref[ax] + s, 3);
+        if (keysOf(c, 'position').length) upsertKeyOn(c, 'position', np, t, 'manual'); else c.transform.position = np;
+        S().bump();
+        return;
+      }
+
       // point of interest: move the look-at point at the playhead
       if (d.kind === 'poi') {
         const t = S().project.timeline.playhead;
@@ -132,13 +151,7 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
         if (c.target?.type === 'object') return;
         if (!c.target || c.target.type !== 'point') S().setTarget({ type: 'point', point: [...poiPoint(c, t)] as Vec3 });
         const cc = S().active(); const ref = poiPoint(cc, t); const ax = d.axis ?? 0;
-        const U = new THREE.Vector3(ax === 0 ? 1 : 0, ax === 1 ? 1 : 0, ax === 2 ? 1 : 0);
-        const w0 = new THREE.Vector3(...ref).sub(rc.ray.origin);
-        const bb = U.dot(rc.ray.direction), cc2 = rc.ray.direction.dot(rc.ray.direction);
-        const dd = U.dot(w0), ee = rc.ray.direction.dot(w0);
-        const denom = cc2 - bb * bb;
-        const s = Math.abs(denom) < 1e-6 ? 0 : (bb * ee - cc2 * dd) / denom;
-        const np = [...ref] as Vec3; np[ax] = round(ref[ax] + s, 3);
+        const np = [...ref] as Vec3; np[ax] = round(ref[ax] + axisScalar(ref, ax), 3);
         if (keysOf(cc, 'poi').length) upsertKeyOn(cc, 'poi', np, t, 'manual'); else if (cc.target?.type === 'point') cc.target.point = np;
         S().bump();
         return;
