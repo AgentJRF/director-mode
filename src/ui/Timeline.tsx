@@ -41,6 +41,9 @@ export default function Timeline() {
     { label: 'Point of Interest', ch: 'poi', lock: c.target?.type === 'object' },
     { label: 'Position', ch: 'position' },
     { label: 'Orientation', ch: 'rotation', lock: !!c.target },
+    { label: 'Focal length', ch: 'focalLength' },
+    { label: 'Aperture', ch: 'aperture' },
+    { label: 'Motion blur', ch: 'motionBlur' },
   ]);
 
   let yCur = TOP_H + 8;
