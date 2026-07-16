@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import * as THREE from 'three';
 import { Line, PivotControls } from '@react-three/drei';
 import { useStore, S, upsertKeyOn } from '../store';
-import { keysOf, evalChannel, lerp, round, evaluate, poiPoint } from '../lib/eval';
+import { keysOf, evalChannel, lerp, round, evaluate, poiPoint, handleOffset } from '../lib/eval';
 import type { Vec3 } from '../types';
 
 const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
@@ -13,7 +13,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
   const rev = useStore(s => s.rev);
   const { gl, camera } = useThree();
   const st = S(); const cam = st.active(); const space = st.ui.gizmoSpace;
-  const dragId = useRef<string | null>(null);
+  const dragTarget = useRef<{ id: string; kind: 'key' | 'in' | 'out' } | null>(null);
   const gizmoDrag = useRef(false);
   const frozen = useRef<THREE.Matrix4 | null>(null);
   const dragStart = useRef<{ base: THREE.Quaternion; start: THREE.Quaternion } | null>(null);
@@ -65,19 +65,22 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
   };
   const onDragEnd = () => { gizmoDrag.current = false; frozen.current = null; dragStart.current = null; S().setGizmoDragging(false); };
 
-  // spline handle drag
+  // spline keyframe + tangent-handle drag (both constrained to the key's horizontal plane)
   useEffect(() => {
     const dom = gl.domElement; const rc = new THREE.Raycaster();
     const move = (e: PointerEvent) => {
-      if (!dragId.current) return;
-      const k = S().active().keyframes.find(k => k.id === dragId.current); if (!k || !Array.isArray(k.value)) return;
+      const dt = dragTarget.current; if (!dt) return;
+      const k = S().active().keyframes.find(k => k.id === dt.id); if (!k || !Array.isArray(k.value)) return;
+      const kv = k.value as Vec3;
       const r = dom.getBoundingClientRect();
       const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       rc.setFromCamera(ndc, camera);
-      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -k.value[1]); const p = new THREE.Vector3();
-      if (rc.ray.intersectPlane(plane, p)) { S().setKeyValueComp(k.id, 0, round(p.x, 3)); S().setKeyValueComp(k.id, 2, round(p.z, 3)); }
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -kv[1]); const p = new THREE.Vector3();
+      if (!rc.ray.intersectPlane(plane, p)) return;
+      if (dt.kind === 'key') { S().setKeyValueComp(k.id, 0, round(p.x, 3)); S().setKeyValueComp(k.id, 2, round(p.z, 3)); }
+      else { S().setKeyTangent(k.id, dt.kind, [round(p.x - kv[0], 3), 0, round(p.z - kv[2], 3)]); }
     };
-    const up = () => { if (dragId.current) { dragId.current = null; S().setGizmoDragging(false); } };
+    const up = () => { if (dragTarget.current) { dragTarget.current = null; S().setGizmoDragging(false); } };
     dom.addEventListener('pointermove', move); dom.addEventListener('pointerup', up);
     return () => { dom.removeEventListener('pointermove', move); dom.removeEventListener('pointerup', up); };
   }, [gl, camera]);
@@ -101,14 +104,34 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
         </group>
       </PivotControls>
       {pts.length >= 2 && <Line points={pts} color="#f2a33c" lineWidth={2} transparent opacity={0.9} />}
-      {pk.map(k => {
+      {pk.map((k, i) => {
         const sel = st.ui.selectedKeyIds.includes(k.id);
+        const kv = k.value as Vec3;
+        const grab = (kind: 'key' | 'in' | 'out') => (e: { stopPropagation: () => void; nativeEvent: Event }) => {
+          e.stopPropagation(); (e.nativeEvent as PointerEvent).stopImmediatePropagation?.();
+          dragTarget.current = { id: k.id, kind }; S().selectKey(k.id); S().setGizmoDragging(true);
+        };
+        // tangent handles: 'out' for every key but the last, 'in' for every key but the first
+        const handles: { which: 'in' | 'out'; pos: Vec3 }[] = [];
+        if (i < pk.length - 1) { const o = handleOffset(pk, i, 'out'); handles.push({ which: 'out', pos: [kv[0] + o[0], kv[1] + o[1], kv[2] + o[2]] }); }
+        if (i > 0) { const o = handleOffset(pk, i, 'in'); handles.push({ which: 'in', pos: [kv[0] + o[0], kv[1] + o[1], kv[2] + o[2]] }); }
         return (
-          <mesh key={k.id} position={k.value as Vec3}
-            onPointerDown={e => { e.stopPropagation(); (e.nativeEvent as PointerEvent).stopImmediatePropagation?.(); dragId.current = k.id; S().selectKey(k.id); S().setGizmoDragging(true); }}>
-            <sphereGeometry args={[0.09, 20, 20]} />
-            <meshBasicMaterial color={sel ? '#ffffff' : '#f2a33c'} />
-          </mesh>
+          <group key={k.id}>
+            <mesh position={kv} onPointerDown={grab('key')}>
+              <sphereGeometry args={[0.09, 20, 20]} />
+              <meshBasicMaterial color={sel ? '#ffffff' : '#f2a33c'} />
+            </mesh>
+            {handles.map(h => (
+              <group key={h.which}>
+                <Line points={[kv, h.pos]} color="#29b6f6" lineWidth={1.5} transparent opacity={0.7} />
+                <mesh position={h.pos} onPointerDown={grab(h.which)}
+                  onDoubleClick={e => { e.stopPropagation(); S().setKeyTangent(k.id, h.which, null); }}>
+                  <sphereGeometry args={[0.06, 16, 16]} />
+                  <meshBasicMaterial color="#29b6f6" />
+                </mesh>
+              </group>
+            ))}
+          </group>
         );
       })}
     </>

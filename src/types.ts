@@ -11,6 +11,10 @@ export interface Keyframe {
   value: Vec3 | number;         // Vec3 for position/rotation, number for focalLength
   ease: Ease;                   // curve ENTERING this key
   source: KeySource;
+  // Bézier tangents for the position channel — offsets (world units) relative to `value`.
+  // Undefined = auto (1/3 of the chord to the neighbour) → straight segment.
+  tangentIn?: Vec3;             // control handle for the segment ARRIVING at this key
+  tangentOut?: Vec3;            // control handle for the segment LEAVING this key
 }
 
 export interface Target {

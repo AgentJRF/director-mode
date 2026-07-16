@@ -76,6 +76,7 @@ interface StoreState {
   clearAnim: () => void;
   setKeyTime: (id: string, t: number) => void;
   setKeyValueComp: (id: string, i: number, v: number) => void;
+  setKeyTangent: (id: string, which: 'in' | 'out', v: Vec3 | null) => void;
   setKeyFocal: (id: string, v: number) => void;
   setKeyEase: (id: string, e: Ease) => void;
   commitPose: (position: Vec3, rotation: Vec3) => void;
@@ -171,6 +172,7 @@ export const useStore = create<StoreState>((set, get) => {
     clearAnim: () => { active().keyframes = []; bump(); },
     setKeyTime: (id, t) => { const k = active().keyframes.find(k => k.id === id); if (k) k.time = clamp(t, 0, get().project.timeline.duration); bump(); },
     setKeyValueComp: (id, i, v) => { const k = active().keyframes.find(k => k.id === id); if (k && Array.isArray(k.value)) { const nv = [...(k.value as Vec3)] as Vec3; nv[i] = v; k.value = nv; } bump(); }, // replace (not mutate) so React/R3F consumers see a new reference
+    setKeyTangent: (id, which, v) => { const k = active().keyframes.find(k => k.id === id); if (k) { const nv = v ? ([...v] as Vec3) : undefined; if (which === 'out') k.tangentOut = nv; else k.tangentIn = nv; } bump(); }, // v=null clears the tangent (back to auto/straight)
     setKeyFocal: (id, v) => { const k = active().keyframes.find(k => k.id === id); if (k) k.value = v; bump(); },
     setKeyEase: (id, e) => { const k = active().keyframes.find(k => k.id === id); if (k) k.ease = e; bump(); },
     commitPose: (position, rotation) => {

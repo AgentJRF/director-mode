@@ -23,6 +23,29 @@ export function keysOf(cam: Camera, ch: Channel): Keyframe[] {
   return cam.keyframes.filter(k => k.channel === ch).sort((a, b) => a.time - b.time);
 }
 
+// Cubic Bézier point (component-wise) for a Vec3 control polygon.
+export function bezier3(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: number): Vec3 {
+  const u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+  return [
+    a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0],
+    a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1],
+    a * p0[2] + b * p1[2] + c * p2[2] + d * p3[2],
+  ];
+}
+
+// Tangent handle offset (relative to the key's value) for a position key.
+// Explicit tangent if set, else auto = 1/3 of the chord to the neighbour (→ straight segment).
+export function handleOffset(ks: Keyframe[], i: number, which: 'in' | 'out'): Vec3 {
+  const k = ks[i];
+  const explicit = which === 'out' ? k.tangentOut : k.tangentIn;
+  if (explicit) return explicit;
+  const n = which === 'out' ? ks[i + 1] : ks[i - 1];
+  if (!n) return [0, 0, 0];
+  const kv = k.value as Vec3, nv = n.value as Vec3;
+  return [(nv[0] - kv[0]) / 3, (nv[1] - kv[1]) / 3, (nv[2] - kv[2]) / 3];
+}
+const addv = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+
 export function evalChannel(cam: Camera, ch: Channel, t: number): Vec3 | number {
   const ks = keysOf(cam, ch);
   const base = ch === 'focalLength' ? cam.optics.focalLength
@@ -39,6 +62,12 @@ export function evalChannel(cam: Camera, ch: Channel, t: number): Vec3 | number 
   const e = (EASES[b.ease] || EASES.linear)(clamp(raw, 0, 1));
   if (ch === 'focalLength' || ch === 'aperture' || ch === 'motionBlur') return lerp(a.value as number, b.value as number, e);
   const av = a.value as Vec3, bv = b.value as Vec3;
+  if (ch === 'position') {
+    // cubic Bézier segment: P0=a, P1=a+outTangent(a), P2=b+inTangent(b), P3=b
+    const p1 = addv(av, handleOffset(ks, i, 'out'));
+    const p2 = addv(bv, handleOffset(ks, i + 1, 'in'));
+    return bezier3(av, p1, p2, bv, e);
+  }
   return [lerp(av[0], bv[0], e), lerp(av[1], bv[1], e), lerp(av[2], bv[2], e)];
 }
 
