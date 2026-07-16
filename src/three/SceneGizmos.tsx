@@ -114,12 +114,15 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
   return (
     <>
       <primitive object={helper} />
+      {/* In multiview the PivotControls gizmo is hidden (it only works with the default camera);
+          the camera body is tagged so useMultiviewInput can drag the camera per-view instead. */}
       <PivotControls matrix={matrix} autoTransform fixed scale={50} lineWidth={2} depthTest={false}
         disableScaling activeAxes={[true, true, true]}
+        disableAxes={multiview} disableSliders={multiview} disableRotations={multiview}
         onDragStart={onDragStart} onDrag={onDrag} onDragEnd={onDragEnd}>
         <group ref={bodyRef}>
-          <mesh position={[0, 0, 0.08]}><boxGeometry args={[0.22, 0.16, 0.26]} /><meshStandardMaterial color="#15181b" roughness={0.5} metalness={0.6} /></mesh>
-          <mesh position={[0, 0, -0.12]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.07, 0.09, 0.14, 20]} /><meshStandardMaterial color="#0c0e10" roughness={0.4} metalness={0.7} /></mesh>
+          <mesh position={[0, 0, 0.08]} userData={{ gizmo: { kind: 'camera' } }}><boxGeometry args={[0.22, 0.16, 0.26]} /><meshStandardMaterial color="#15181b" roughness={0.5} metalness={0.6} /></mesh>
+          <mesh position={[0, 0, -0.12]} rotation={[Math.PI / 2, 0, 0]} userData={{ gizmo: { kind: 'camera' } }}><cylinderGeometry args={[0.07, 0.09, 0.14, 20]} /><meshStandardMaterial color="#0c0e10" roughness={0.4} metalness={0.7} /></mesh>
         </group>
       </PivotControls>
       {pts.length >= 2 && <Line points={pts} color="#f2a33c" lineWidth={2} transparent opacity={0.9} />}

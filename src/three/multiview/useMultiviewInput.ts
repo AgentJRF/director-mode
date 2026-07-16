@@ -1,13 +1,14 @@
 import { useThree } from '@react-three/fiber';
 import { useEffect, type RefObject } from 'react';
 import * as THREE from 'three';
-import { S } from '../../store';
-import { keysOf, handleOffset, round } from '../../lib/eval';
+import { S, upsertKeyOn } from '../../store';
+import { keysOf, handleOffset, evaluate, round } from '../../lib/eval';
 import type { Vec3 } from '../../types';
 import { quadrantFor, subRectFor, ndcInSub, orthoCams, orthoState, planeAndAxesFor, type ViewId, type OrthoId, type SubRect } from './views';
 
-type GizmoTag = { id: string; kind: 'key' | 'in' | 'out' };
-type DragState = { id: string; kind: 'key' | 'in' | 'out'; viewId: ViewId };
+type Kind = 'key' | 'in' | 'out' | 'camera';
+type GizmoTag = { id?: string; kind: Kind };
+type DragState = { id?: string; kind: Kind; viewId: ViewId };
 
 // Single input owner for quad multiview: resolves the quadrant + its camera for every pointer
 // event, picks gizmo handles in screen space, and drags them on the correct per-view plane.
@@ -47,7 +48,7 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
       const hit = pick(cam, sub, e.clientX, e.clientY);
       if (hit) {
         drag = { ...hit, viewId };
-        S().selectKey(hit.id); S().setGizmoDragging(true);
+        S().selectKey(hit.id ?? null); S().setGizmoDragging(true);
         try { dom.setPointerCapture(e.pointerId); } catch { /* best effort */ }
       } else if (viewId !== 'persp') {
         pan = { id: viewId as OrthoId, lastX: e.clientX, lastY: e.clientY };
@@ -70,35 +71,62 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
     };
 
     const applyDrag = (e: PointerEvent) => {
-      const c = S().active(); const k = c.keyframes.find(x => x.id === drag!.id); if (!k || !Array.isArray(k.value)) return;
-      const kv = k.value as Vec3;
-      const rect = dom.getBoundingClientRect();
-      const sub = subRectFor(drag!.viewId, rect); const cam = camFor(drag!.viewId); if (!cam) return;
+      const c = S().active();
+      const d = drag!; const rect = dom.getBoundingClientRect();
+      const sub = subRectFor(d.viewId, rect); const cam = camFor(d.viewId); if (!cam) return;
       rc.setFromCamera(ndcInSub(e.clientX, e.clientY, sub), cam);
       const p = new THREE.Vector3();
-      const pk = keysOf(c, 'position'); const idx = pk.findIndex(x => x.id === k.id);
-      const curOff = drag!.kind === 'key' ? ([0, 0, 0] as Vec3) : handleOffset(pk, idx, drag!.kind);
 
-      if (drag!.viewId === 'persp') {
+      // camera body: translate the camera pose at the playhead (upsert a key if animated)
+      if (d.kind === 'camera') {
+        const t = S().project.timeline.playhead;
+        const ref = evaluate(c, t).position;
+        const np = [...ref] as Vec3;
+        if (d.viewId === 'persp') {
+          if (e.shiftKey) {
+            const fwd = new THREE.Vector3(); cam.getWorldDirection(fwd); fwd.y = 0; if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1); fwd.normalize();
+            if (!rc.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(fwd, new THREE.Vector3(...ref)), p)) return;
+            np[1] = round(p.y, 3);
+          } else {
+            if (!rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -ref[1]), p)) return;
+            np[0] = round(p.x, 3); np[2] = round(p.z, 3);
+          }
+        } else {
+          const { plane, axes } = planeAndAxesFor(d.viewId as OrthoId, ref);
+          if (!rc.ray.intersectPlane(plane, p)) return;
+          const world = [p.x, p.y, p.z]; axes.forEach(a => { np[a] = round(world[a], 3); });
+        }
+        if (keysOf(c, 'position').length) upsertKeyOn(c, 'position', np, t, 'manual'); else c.transform.position = np;
+        S().bump();
+        return;
+      }
+
+      const k = c.keyframes.find(x => x.id === d.id); if (!k || !Array.isArray(k.value)) return;
+      const kv = k.value as Vec3;
+      const pk = keysOf(c, 'position'); const idx = pk.findIndex(x => x.id === k.id);
+      const curOff = d.kind === 'key' ? ([0, 0, 0] as Vec3) : handleOffset(pk, idx, d.kind as 'in' | 'out');
+
+      const which = d.kind as 'in' | 'out';
+      if (d.viewId === 'persp') {
         if (e.shiftKey) {
           const fwd = new THREE.Vector3(); cam.getWorldDirection(fwd); fwd.y = 0; if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1); fwd.normalize();
-          const anchor = drag!.kind === 'key' ? new THREE.Vector3(...kv) : new THREE.Vector3(kv[0] + curOff[0], kv[1] + curOff[1], kv[2] + curOff[2]);
+          const anchor = d.kind === 'key' ? new THREE.Vector3(...kv) : new THREE.Vector3(kv[0] + curOff[0], kv[1] + curOff[1], kv[2] + curOff[2]);
           if (!rc.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(fwd, anchor), p)) return;
-          if (drag!.kind === 'key') S().setKeyValueComp(k.id, 1, round(p.y, 3));
-          else S().setKeyTangent(k.id, drag!.kind, [curOff[0], round(p.y - kv[1], 3), curOff[2]]);
+          if (d.kind === 'key') S().setKeyValueComp(k.id, 1, round(p.y, 3));
+          else S().setKeyTangent(k.id, which, [curOff[0], round(p.y - kv[1], 3), curOff[2]]);
         } else {
           if (!rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -kv[1]), p)) return;
-          if (drag!.kind === 'key') { S().setKeyValueComp(k.id, 0, round(p.x, 3)); S().setKeyValueComp(k.id, 2, round(p.z, 3)); }
-          else S().setKeyTangent(k.id, drag!.kind, [round(p.x - kv[0], 3), curOff[1], round(p.z - kv[2], 3)]);
+          if (d.kind === 'key') { S().setKeyValueComp(k.id, 0, round(p.x, 3)); S().setKeyValueComp(k.id, 2, round(p.z, 3)); }
+          else S().setKeyTangent(k.id, which, [round(p.x - kv[0], 3), curOff[1], round(p.z - kv[2], 3)]);
         }
         return;
       }
       // orthographic view: plane + the two in-plane axes it edits
-      const { plane, axes } = planeAndAxesFor(drag!.viewId as OrthoId, kv);
+      const { plane, axes } = planeAndAxesFor(d.viewId as OrthoId, kv);
       if (!rc.ray.intersectPlane(plane, p)) return;
       const world = [p.x, p.y, p.z];
-      if (drag!.kind === 'key') { axes.forEach(a => S().setKeyValueComp(k.id, a, round(world[a], 3))); }
-      else { const off = curOff.slice() as Vec3; axes.forEach(a => { off[a] = round(world[a] - kv[a], 3); }); S().setKeyTangent(k.id, drag!.kind, off); }
+      if (d.kind === 'key') { axes.forEach(a => S().setKeyValueComp(k.id, a, round(world[a], 3))); }
+      else { const off = curOff.slice() as Vec3; axes.forEach(a => { off[a] = round(world[a] - kv[a], 3); }); S().setKeyTangent(k.id, which, off); }
     };
 
     const up = () => { if (drag) { drag = null; S().setGizmoDragging(false); } pan = null; };
