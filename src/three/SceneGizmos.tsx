@@ -159,15 +159,31 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
       })}
       {/* Multiview 3D markers (drei <Html>/PivotControls only track the default camera, so they are
           replaced by scene meshes that render correctly in every quadrant). */}
-      {multiview && (
-        <>
-          <primitive object={camAxes} position={evaluate(cam, st.project.timeline.playhead).position as Vec3} />
-          <mesh position={poiPoint(cam, st.project.timeline.playhead)} userData={{ gizmo: { kind: 'poi' } }}>
-            <sphereGeometry args={[0.08, 16, 16]} />
-            <meshBasicMaterial color="#5b9dd9" />
-          </mesh>
-        </>
-      )}
+      {multiview && (() => {
+        const poi = poiPoint(cam, st.project.timeline.playhead);
+        const L = 0.7, AX: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], COL = ['#ff5a5a', '#5aff7a', '#5a9dff'];
+        return (
+          <>
+            {/* camera "gizmo" indicator (grab the camera body to translate on the view plane) */}
+            <primitive object={camAxes} position={evaluate(cam, st.project.timeline.playhead).position as Vec3} />
+            {/* POI: centre handle (view-plane drag) + 3-axis arrows (axis-constrained drag) */}
+            <mesh position={poi} userData={{ gizmo: { kind: 'poi' } }}>
+              <sphereGeometry args={[0.07, 14, 14]} /><meshBasicMaterial color="#5b9dd9" />
+            </mesh>
+            {AX.map((d, ai) => {
+              const tip: Vec3 = [poi[0] + d[0] * L, poi[1] + d[1] * L, poi[2] + d[2] * L];
+              return (
+                <group key={ai}>
+                  <Line points={[poi, tip]} color={COL[ai]} lineWidth={2} />
+                  <mesh position={tip} userData={{ gizmo: { kind: 'poi-axis', axis: ai } }}>
+                    <sphereGeometry args={[0.06, 12, 12]} /><meshBasicMaterial color={COL[ai]} />
+                  </mesh>
+                </group>
+              );
+            })}
+          </>
+        );
+      })()}
     </>
   );
 }

@@ -6,9 +6,9 @@ import { keysOf, handleOffset, evaluate, poiPoint, round } from '../../lib/eval'
 import type { Vec3 } from '../../types';
 import { quadrantFor, subRectFor, ndcInSub, orthoCams, orthoState, planeAndAxesFor, type ViewId, type OrthoId, type SubRect } from './views';
 
-type Kind = 'key' | 'in' | 'out' | 'camera' | 'poi';
-type GizmoTag = { id?: string; kind: Kind };
-type DragState = { id?: string; kind: Kind; viewId: ViewId };
+type Kind = 'key' | 'in' | 'out' | 'camera' | 'poi' | 'poi-axis';
+type GizmoTag = { id?: string; kind: Kind; axis?: number };
+type DragState = { id?: string; kind: Kind; axis?: number; viewId: ViewId };
 
 // Single input owner for quad multiview: resolves the quadrant + its camera for every pointer
 // event, picks gizmo handles in screen space, and drags them on the correct per-view plane.
@@ -121,6 +121,24 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
           if (!rc.ray.intersectPlane(plane, p)) return;
           const world = [p.x, p.y, p.z]; axes.forEach(a => { np[a] = round(world[a], 3); });
         }
+        if (keysOf(cc, 'poi').length) upsertKeyOn(cc, 'poi', np, t, 'manual'); else if (cc.target?.type === 'point') cc.target.point = np;
+        S().bump();
+        return;
+      }
+
+      // POI axis arrow: constrain movement to a single world axis (closest point on the axis to the ray)
+      if (d.kind === 'poi-axis') {
+        const t = S().project.timeline.playhead;
+        if (c.target?.type === 'object') return;
+        if (!c.target || c.target.type !== 'point') S().setTarget({ type: 'point', point: [...poiPoint(c, t)] as Vec3 });
+        const cc = S().active(); const ref = poiPoint(cc, t); const ax = d.axis ?? 0;
+        const U = new THREE.Vector3(ax === 0 ? 1 : 0, ax === 1 ? 1 : 0, ax === 2 ? 1 : 0);
+        const w0 = new THREE.Vector3(...ref).sub(rc.ray.origin);
+        const bb = U.dot(rc.ray.direction), cc2 = rc.ray.direction.dot(rc.ray.direction);
+        const dd = U.dot(w0), ee = rc.ray.direction.dot(w0);
+        const denom = cc2 - bb * bb;
+        const s = Math.abs(denom) < 1e-6 ? 0 : (bb * ee - cc2 * dd) / denom;
+        const np = [...ref] as Vec3; np[ax] = round(ref[ax] + s, 3);
         if (keysOf(cc, 'poi').length) upsertKeyOn(cc, 'poi', np, t, 'manual'); else if (cc.target?.type === 'point') cc.target.point = np;
         S().bump();
         return;
