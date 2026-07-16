@@ -37,6 +37,7 @@ interface UI {
   gizmoSpace: 'world' | 'local';
   focusPicking: boolean;
   targetSelected: boolean;
+  multiview: boolean;
   hidden: Record<string, boolean>;
 }
 
@@ -86,6 +87,7 @@ interface StoreState {
   setPoseAB: (which: 'A' | 'B', p: Pose | null) => void;
   setRecording: (b: boolean) => void;
   setViewMode: (m: ViewMode) => void;
+  setMultiview: (b: boolean) => void;
   setGizmoDragging: (b: boolean) => void;
   setGizmoMode: (m: 'translate' | 'rotate') => void;
   setGizmoSpace: (s: 'world' | 'local') => void;
@@ -104,7 +106,7 @@ export const useStore = create<StoreState>((set, get) => {
 
   return {
     project, rev: 0,
-    ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, targetSelected: false, hidden: {} },
+    ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, targetSelected: false, multiview: false, hidden: {} },
     bump, active,
     setTool: t => { get().ui.tool = t; bump(); },
     toast: m => { get().ui.toast = m; bump(); setTimeout(() => { if (get().ui.toast === m) { get().ui.toast = ''; bump(); } }, 2600); },
@@ -191,6 +193,7 @@ export const useStore = create<StoreState>((set, get) => {
     setPoseAB: (which, p) => { if (which === 'A') get().ui.poseA = p; else get().ui.poseB = p; bump(); },
     setRecording: b => { get().ui.recording = b; bump(); },
     setViewMode: m => { get().ui.viewMode = m; bump(); },
+    setMultiview: b => { get().ui.multiview = b; bump(); },
     setGizmoDragging: b => { get().ui.gizmoDragging = b; bump(); },
     setGizmoMode: m => { get().ui.gizmoMode = m; bump(); },
     setGizmoSpace: s => { get().ui.gizmoSpace = s; bump(); },

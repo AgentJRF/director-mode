@@ -35,6 +35,12 @@ export default function ViewPills() {
           </button>
         </div>
       )}
+      {ui.viewMode === 'scene' && (
+        <div className="seg" style={{ background: 'rgba(0,0,0,.5)' }}>
+          <button className={ui.multiview ? 'sel' : ''} onClick={() => S().setMultiview(!ui.multiview)}
+            title="Quad view: Perspective + Top + Front + Side (4)">⊞ Quad</button>
+        </div>
+      )}
     </div>
   );
 }

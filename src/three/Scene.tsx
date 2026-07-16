@@ -10,6 +10,7 @@ import TargetPicker from './TargetPicker';
 import PoiControl from './PoiControl';
 import EditorFly from './EditorFly';
 import Product from './Product';
+import MultiviewRenderer from './multiview/MultiviewRenderer';
 import { useStore, PIVOT, S } from '../store';
 import { clamp, evalChannel } from '../lib/eval';
 
@@ -59,24 +60,28 @@ function DoF() {
 
 export default function Scene() {
   const mode = useStore(s => s.ui.viewMode);
+  const multiview = useStore(s => s.ui.multiview);
   const gizmoDragging = useStore(s => s.ui.gizmoDragging);
   const renderCamRef = useRef<THREE.PerspectiveCamera>(null);
+  const sceneCamRef = useRef<THREE.PerspectiveCamera>(null);
+  const quad = mode === 'scene' && multiview;
 
   return (
     <Canvas shadows dpr={[1, 2]} gl={{ preserveDrawingBuffer: true, antialias: true }}
       onCreated={({ scene, gl }) => { scene.background = new THREE.Color(0x1a1e22); scene.fog = new THREE.Fog(0x1a1e22, 22, 48); gl.toneMappingExposure = 1.25; }}>
       <PerspectiveCamera ref={renderCamRef} makeDefault={mode === 'camera'} fov={45} near={0.1} far={200} position={[4, 2.2, 5]} />
-      <PerspectiveCamera makeDefault={mode === 'scene'} fov={50} near={0.1} far={500} position={[8, 5, 9]} />
+      <PerspectiveCamera ref={sceneCamRef} makeDefault={mode === 'scene'} fov={50} near={0.1} far={500} position={[8, 5, 9]} />
       <Lights />
       <Floor />
       <Suspense fallback={null}><Product /></Suspense>
       <CameraController renderCamRef={renderCamRef} />
       <FocusPicker />
       <TargetPicker />
-      {mode === 'scene' && <OrbitControls makeDefault enableDamping dampingFactor={0.12} target={[0, 1.4, 0]} enabled={!gizmoDragging} enablePan screenSpacePanning panSpeed={1.1} minDistance={1.5} maxDistance={120} />}
-      {mode === 'scene' && <EditorFly />}
+      {mode === 'scene' && !multiview && <OrbitControls makeDefault enableDamping dampingFactor={0.12} target={[0, 1.4, 0]} enabled={!gizmoDragging} enablePan screenSpacePanning panSpeed={1.1} minDistance={1.5} maxDistance={120} />}
+      {mode === 'scene' && !multiview && <EditorFly />}
       {mode === 'scene' && <SceneGizmos renderCamRef={renderCamRef} />}
-      {mode === 'scene' && <PoiControl />}
+      {mode === 'scene' && !multiview && <PoiControl />}
+      {quad && <MultiviewRenderer sceneCamRef={sceneCamRef} />}
       {mode === 'camera' && <DoF />}
     </Canvas>
   );

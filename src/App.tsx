@@ -11,6 +11,7 @@ import Modals from './ui/Modals';
 import { Toast, Loading } from './ui/Toast';
 import ErrorBoundary from './ui/ErrorBoundary';
 import SplineOverlay from './three/SplineOverlay';
+import MultiviewOverlay from './three/MultiviewOverlay';
 import { S, useStore } from './store';
 import { applyLutToCanvas } from './lib/lut';
 import { R3 } from './three/shared';
@@ -45,6 +46,7 @@ export default function App() {
       if (map[e.key]) st.setTool(map[e.key]);
       if (e.key === 'g') st.setTool(st.ui.tool === 'generators' ? 'select' : 'generators');
       if (e.key === 'r') st.setGizmoSpace(st.ui.gizmoSpace === 'world' ? 'local' : 'world');
+      if (e.key === '4' && st.ui.viewMode === 'scene') st.setMultiview(!st.ui.multiview);
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (st.ui.targetSelected && st.active().target) st.setTarget(null); // selected target badge → remove target
         else if (st.ui.selectedKeyIds.length) st.removeKeys(st.ui.selectedKeyIds);
@@ -65,6 +67,7 @@ export default function App() {
               <Scene />
             </ErrorBoundary>
             <SplineOverlay />
+            <MultiviewOverlay />
           </div>
         </div>
         <HUD />
