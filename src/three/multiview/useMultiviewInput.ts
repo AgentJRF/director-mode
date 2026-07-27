@@ -5,10 +5,30 @@ import { S, upsertKeyOn } from '../../store';
 import { keysOf, handleOffset, evaluate, poiPoint, round } from '../../lib/eval';
 import type { Vec3 } from '../../types';
 import { quadrantFor, subRectFor, ndcInSub, orthoCams, orthoState, planeAndAxesFor, type ViewId, type OrthoId, type SubRect } from './views';
+import { layoutGizmosForView } from './gizmoLayout';
 
-type Kind = 'key' | 'in' | 'out' | 'camera' | 'camera-axis' | 'poi' | 'poi-axis';
+type Kind = 'key' | 'in' | 'out' | 'camera' | 'camera-axis' | 'camera-plane' | 'camera-rot' | 'poi' | 'poi-axis' | 'poi-plane';
 type GizmoTag = { id?: string; kind: Kind; axis?: number };
-type DragState = { id?: string; kind: Kind; axis?: number; viewId: ViewId };
+type DragState = { id?: string; kind: Kind; axis?: number; viewId: ViewId; startAngle?: number; startQuat?: THREE.Quaternion; axisDir?: THREE.Vector3; u?: THREE.Vector3; v?: THREE.Vector3 };
+
+const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
+const unitVec = (a: number) => new THREE.Vector3(a === 0 ? 1 : 0, a === 1 ? 1 : 0, a === 2 ? 1 : 0);
+
+// The three gizmo axis directions, honoring the object/world switch (world = axes; local = the
+// camera's own axes) — must match the gizmo's on-screen orientation (baseQuat in SceneGizmos).
+function gizmoAxisDirs(): [THREE.Vector3, THREE.Vector3, THREE.Vector3] {
+  if (S().ui.gizmoSpace === 'world') return [unitVec(0), unitVec(1), unitVec(2)];
+  const p = evaluate(S().active(), S().project.timeline.playhead);
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(d2r(p.rotation[0]), d2r(p.rotation[1]), d2r(p.rotation[2]), 'YXZ'));
+  return [unitVec(0).applyQuaternion(q), unitVec(1).applyQuaternion(q), unitVec(2).applyQuaternion(q)];
+}
+// two orthonormal vectors spanning the plane perpendicular to `n`
+function perpBasis(n: THREE.Vector3): [THREE.Vector3, THREE.Vector3] {
+  const ref = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  const u = new THREE.Vector3().crossVectors(ref, n).normalize();
+  const v = new THREE.Vector3().crossVectors(n, u).normalize();
+  return [u, v];
+}
 
 // Single input owner for quad multiview: resolves the quadrant + its camera for every pointer
 // event, picks gizmo handles in screen space, and drags them on the correct per-view plane.
@@ -25,8 +45,8 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
     const active = () => S().ui.viewMode === 'scene' && S().ui.multiview;
     const camFor = (v: ViewId): THREE.Camera | null => (v === 'persp' ? sceneCamRef.current : orthoCams[v as OrthoId]);
     // scalar offset along world axis `ax` (through `ref`) of the point closest to the current ray
-    const axisScalar = (ref: Vec3, ax: number): number => {
-      const U = new THREE.Vector3(ax === 0 ? 1 : 0, ax === 1 ? 1 : 0, ax === 2 ? 1 : 0);
+    // scalar offset along unit direction `U` (through `ref`) of the point on that line closest to the ray
+    const axisScalarDir = (ref: Vec3, U: THREE.Vector3): number => {
       const w0 = new THREE.Vector3(...ref).sub(rc.ray.origin);
       const bb = U.dot(rc.ray.direction), cc2 = rc.ray.direction.dot(rc.ray.direction);
       const denom = cc2 - bb * bb;
@@ -53,9 +73,23 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
       const rect = dom.getBoundingClientRect();
       const { viewId, sub } = quadrantFor(e.clientX, e.clientY, rect);
       const cam = camFor(viewId); if (!cam) return;
+      layoutGizmosForView(cam, sub.h); // match the on-screen (screen-fixed) gizmo size before hit-testing
       const hit = pick(cam, sub, e.clientX, e.clientY);
       if (hit) {
         drag = { ...hit, viewId };
+        // rotation ring: fix the grabbed axis (object/world) + capture start angle and orientation
+        if (hit.kind === 'camera-rot' && !S().active().target) {
+          const c = S().active(); const t = S().project.timeline.playhead; const pz = evaluate(c, t);
+          rc.setFromCamera(ndcInSub(e.clientX, e.clientY, sub), cam);
+          const axisDir = gizmoAxisDirs()[hit.axis ?? 0]; const [u, v] = perpBasis(axisDir);
+          const ref = new THREE.Vector3(...pz.position);
+          const pp = new THREE.Vector3(); let startAngle = 0;
+          if (rc.ray.intersectPlane(new THREE.Plane(axisDir, -axisDir.dot(ref)), pp)) {
+            const rel = pp.sub(ref); startAngle = Math.atan2(rel.dot(v), rel.dot(u));
+          }
+          drag.axisDir = axisDir; drag.u = u; drag.v = v; drag.startAngle = startAngle;
+          drag.startQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(d2r(pz.rotation[0]), d2r(pz.rotation[1]), d2r(pz.rotation[2]), 'YXZ'));
+        }
         S().selectKey(hit.id ?? null); S().setGizmoDragging(true);
         try { dom.setPointerCapture(e.pointerId); } catch { /* best effort */ }
       } else if (viewId !== 'persp') {
@@ -109,12 +143,12 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
         return;
       }
 
-      // camera axis arrow: translate the camera along one world axis
+      // camera axis arrow: translate the camera along one gizmo axis (world or the camera's local axis)
       if (d.kind === 'camera-axis') {
         const t = S().project.timeline.playhead;
-        const ref = evaluate(c, t).position; const ax = d.axis ?? 0;
-        const s = axisScalar(ref, ax);
-        const np = [...ref] as Vec3; np[ax] = round(ref[ax] + s, 3);
+        const ref = evaluate(c, t).position; const dir = gizmoAxisDirs()[d.axis ?? 0];
+        const s = axisScalarDir(ref, dir);
+        const np: Vec3 = [round(ref[0] + dir.x * s, 3), round(ref[1] + dir.y * s, 3), round(ref[2] + dir.z * s, 3)];
         if (keysOf(c, 'position').length) upsertKeyOn(c, 'position', np, t, 'manual'); else c.transform.position = np;
         S().bump();
         return;
@@ -145,16 +179,35 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
         return;
       }
 
-      // POI axis arrow: constrain movement to a single world axis (closest point on the axis to the ray)
-      if (d.kind === 'poi-axis') {
+      // camera plane slider: drag within the plane whose normal is gizmo axis `d.axis` (world or local)
+      if (d.kind === 'camera-plane') {
         const t = S().project.timeline.playhead;
-        if (c.target?.type === 'object') return;
-        if (!c.target || c.target.type !== 'point') S().setTarget({ type: 'point', point: [...poiPoint(c, t)] as Vec3 });
-        const cc = S().active(); const ref = poiPoint(cc, t); const ax = d.axis ?? 0;
-        const np = [...ref] as Vec3; np[ax] = round(ref[ax] + axisScalar(ref, ax), 3);
-        if (keysOf(cc, 'poi').length) upsertKeyOn(cc, 'poi', np, t, 'manual'); else if (cc.target?.type === 'point') cc.target.point = np;
-        S().bump();
-        return;
+        const ref = evaluate(c, t).position; const dirs = gizmoAxisDirs(); const N = d.axis ?? 0;
+        const nrm = dirs[N], u = dirs[(N + 1) % 3], vv = dirs[(N + 2) % 3];
+        const refV = new THREE.Vector3(...ref);
+        if (!rc.ray.intersectPlane(new THREE.Plane(nrm, -nrm.dot(refV)), p)) return;
+        const rel = p.clone().sub(refV); const du = rel.dot(u), dv = rel.dot(vv);
+        const np: Vec3 = [
+          round(ref[0] + u.x * du + vv.x * dv, 3),
+          round(ref[1] + u.y * du + vv.y * dv, 3),
+          round(ref[2] + u.z * du + vv.z * dv, 3),
+        ];
+        if (keysOf(c, 'position').length) upsertKeyOn(c, 'position', np, t, 'manual'); else c.transform.position = np;
+        S().bump(); return;
+      }
+
+      // rotation ring: rotate the (free) camera around the grabbed gizmo axis by the drag-angle delta
+      if (d.kind === 'camera-rot') {
+        if (c.target || !d.axisDir) return; // rotation owned by the target, or missing start data
+        const t = S().project.timeline.playhead; const ref = new THREE.Vector3(...evaluate(c, t).position);
+        if (!rc.ray.intersectPlane(new THREE.Plane(d.axisDir, -d.axisDir.dot(ref)), p)) return;
+        const rel = p.clone().sub(ref);
+        const delta = Math.atan2(rel.dot(d.v!), rel.dot(d.u!)) - (d.startAngle ?? 0);
+        const q = new THREE.Quaternion().setFromAxisAngle(d.axisDir, delta).multiply(d.startQuat ?? new THREE.Quaternion());
+        const eu = new THREE.Euler().setFromQuaternion(q, 'YXZ');
+        const rot: Vec3 = [r2d(eu.x), r2d(eu.y), r2d(eu.z)];
+        if (keysOf(c, 'rotation').length) upsertKeyOn(c, 'rotation', rot, t, 'manual'); else c.transform.rotation = rot;
+        S().bump(); return;
       }
 
       const k = c.keyframes.find(x => x.id === d.id); if (!k || !Array.isArray(k.value)) return;

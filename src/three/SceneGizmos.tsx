@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { Line, PivotControls } from '@react-three/drei';
 import { useStore, S, upsertKeyOn } from '../store';
 import { keysOf, evalChannel, lerp, round, evaluate, poiPoint, handleOffset } from '../lib/eval';
+import MultiviewGizmo from './multiview/MultiviewGizmo';
 import type { Vec3 } from '../types';
 
 const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
@@ -156,33 +157,18 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
           </group>
         );
       })}
-      {/* Multiview 3D markers (drei <Html>/PivotControls only track the default camera, so they are
-          replaced by scene meshes that render correctly in every quadrant). */}
+      {/* Multiview gizmos: drei <PivotControls> can't run under scissor multiview (it only tracks the
+          default camera), so we mirror it with tagged scene meshes that render in every quadrant.
+          Camera gets the full translate+plane+rotate gizmo (rotation only when a target isn't driving
+          the aim); POI gets translate+plane plus a centre handle for free view-plane drag. */}
       {multiview && (() => {
         const poi = poiPoint(cam, st.project.timeline.playhead);
         const camPose = evaluate(cam, st.project.timeline.playhead).position as Vec3;
-        const L = 0.7, AX: Vec3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]], COL = ['#ff5a5a', '#5aff7a', '#5a9dff'];
-        // Same 3-axis translate gizmo as scene-mode PivotControls, but per-view: grab an arrow tip
-        // to move along that world axis; PivotControls itself can't work under scissor multiview.
-        const arrows = (o: Vec3, kind: 'camera-axis' | 'poi-axis') => AX.map((d, ai) => {
-          const tip: Vec3 = [o[0] + d[0] * L, o[1] + d[1] * L, o[2] + d[2] * L];
-          return (
-            <group key={kind + ai}>
-              <Line points={[o, tip]} color={COL[ai]} lineWidth={2} />
-              <mesh position={tip} userData={{ gizmo: { kind, axis: ai } }}>
-                <sphereGeometry args={[0.06, 12, 12]} /><meshBasicMaterial color={COL[ai]} />
-              </mesh>
-            </group>
-          );
-        });
+        // Screen-fixed sizing/billboarding is applied per quadrant by gizmoLayout (from the renderer).
         return (
           <>
-            {arrows(camPose, 'camera-axis')}
-            {arrows(poi, 'poi-axis')}
-            {/* POI centre handle (view-plane drag) */}
-            <mesh position={poi} userData={{ gizmo: { kind: 'poi' } }}>
-              <sphereGeometry args={[0.07, 14, 14]} /><meshBasicMaterial color="#5b9dd9" />
-            </mesh>
+            <MultiviewGizmo origin={camPose} kind="camera" rotation={!cam.target} quaternion={[baseQuat.x, baseQuat.y, baseQuat.z, baseQuat.w]} />
+            <MultiviewGizmo origin={poi} kind="poi" />
           </>
         );
       })()}

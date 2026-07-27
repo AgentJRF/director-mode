@@ -5,6 +5,7 @@ import { PIVOT, S } from '../../store';
 import { keysOf } from '../../lib/eval';
 import type { Vec3 } from '../../types';
 import { orthoState, configOrtho, orthoCams } from './views';
+import { layoutGizmosForView } from './gizmoLayout';
 import useMultiviewInput from './useMultiviewInput';
 
 // Takes over the render loop (useFrame priority 1 disables r3f auto-render) and paints the single
@@ -74,6 +75,7 @@ export default function MultiviewRenderer({ sceneCamRef }: { sceneCamRef: RefObj
     for (const [cam, x, y] of quads) {
       gl.setViewport(x, y, hw, hh);
       gl.setScissor(x, y, hw, hh);
+      layoutGizmosForView(cam, hh); // screen-fixed size + billboard, for THIS quadrant's camera
       gl.render(scene, cam);
     }
 
