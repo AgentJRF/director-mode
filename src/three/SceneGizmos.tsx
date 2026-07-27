@@ -5,6 +5,7 @@ import { Line, PivotControls } from '@react-three/drei';
 import { useStore, S, upsertKeyOn } from '../store';
 import { keysOf, evalChannel, lerp, round, evaluate, poiPoint, handleOffset } from '../lib/eval';
 import MultiviewGizmo from './multiview/MultiviewGizmo';
+import { R3, viewMarquee } from './shared';
 import type { Vec3 } from '../types';
 
 const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
@@ -13,9 +14,10 @@ const ONE = new THREE.Vector3(1, 1, 1);
 export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<THREE.PerspectiveCamera | null> }) {
   const rev = useStore(s => s.rev);
   const multiview = useStore(s => s.ui.multiview);
-  const { gl, camera } = useThree();
+  const { gl, camera, scene } = useThree();
   const st = S(); const cam = st.active(); const space = st.ui.gizmoSpace;
-  const dragTarget = useRef<{ id: string; kind: 'key' | 'in' | 'out' } | null>(null);
+  const selectTool = st.ui.tool === 'select'; // Select tool acts on keyframes only — camera gizmo is hidden/inert
+  const dragTarget = useRef<{ id: string; kind: 'key' | 'in' | 'out'; group?: { id: string; orig: Vec3 }[]; anchor?: Vec3 } | null>(null);
   const gizmoDrag = useRef(false);
   const frozen = useRef<THREE.Matrix4 | null>(null);
   const dragStart = useRef<{ base: THREE.Quaternion; start: THREE.Quaternion } | null>(null);
@@ -26,6 +28,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
   const bodyRef = useRef<THREE.Group>(null);
 
   useFrame(() => {
+    R3.sceneCam = camera as THREE.PerspectiveCamera; // expose the scene camera for the marquee overlay
     const rc = renderCamRef.current; if (!rc) return;
     const poi = poiPoint(S().active(), S().project.timeline.playhead);
     frustumCam.position.copy(rc.position); frustumCam.quaternion.copy(rc.quaternion);
@@ -84,19 +87,20 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
       // current tangent offset (for handles), to preserve axes we're not editing
       let off: Vec3 = [0, 0, 0];
       if (dt.kind !== 'key') { const pk2 = keysOf(c, 'position'); const i = pk2.findIndex(x => x.id === k.id); off = handleOffset(pk2, i, dt.kind); }
+      const group = dt.group ?? [{ id: k.id, orig: kv }]; const anchor = dt.anchor ?? kv; // group drag: move all selected keys by the same delta
       if (e.shiftKey) {
         // vertical (Y): intersect a camera-facing vertical plane through the drag target
         const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd); fwd.y = 0; if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1); fwd.normalize();
-        const anchor = dt.kind === 'key' ? new THREE.Vector3(...kv) : new THREE.Vector3(kv[0] + off[0], kv[1] + off[1], kv[2] + off[2]);
-        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(fwd, anchor);
+        const a = dt.kind === 'key' ? new THREE.Vector3(...kv) : new THREE.Vector3(kv[0] + off[0], kv[1] + off[1], kv[2] + off[2]);
+        const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(fwd, a);
         if (!rc.ray.intersectPlane(plane, p)) return;
-        if (dt.kind === 'key') S().setKeyValueComp(k.id, 1, round(p.y, 3));
+        if (dt.kind === 'key') { const dy = round(p.y, 3) - anchor[1]; for (const it of group) S().setKeyValueComp(it.id, 1, round(it.orig[1] + dy, 3)); }
         else S().setKeyTangent(k.id, dt.kind, [off[0], round(p.y - kv[1], 3), off[2]]);
       } else {
         // horizontal (X/Z): plane at the key's height
         const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -kv[1]);
         if (!rc.ray.intersectPlane(plane, p)) return;
-        if (dt.kind === 'key') { S().setKeyValueComp(k.id, 0, round(p.x, 3)); S().setKeyValueComp(k.id, 2, round(p.z, 3)); }
+        if (dt.kind === 'key') { const dx = round(p.x, 3) - anchor[0], dz = round(p.z, 3) - anchor[2]; for (const it of group) { S().setKeyValueComp(it.id, 0, round(it.orig[0] + dx, 3)); S().setKeyValueComp(it.id, 2, round(it.orig[2] + dz, 3)); } }
         else S().setKeyTangent(k.id, dt.kind, [round(p.x - kv[0], 3), off[1], round(p.z - kv[2], 3)]);
       }
     };
@@ -104,6 +108,43 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
     dom.addEventListener('pointermove', move); dom.addEventListener('pointerup', up);
     return () => { dom.removeEventListener('pointermove', move); dom.removeEventListener('pointerup', up); };
   }, [gl, camera, multiview]);
+
+  // Marquee selection (single Scene view): with the Select tool, drag empty space to rubber-band
+  // position keys. Orbit is disabled in Select mode (Scene.tsx), so an empty drag is free to select.
+  useEffect(() => {
+    const dom = gl.domElement; const rc = new THREE.Raycaster(); let start: { x: number; y: number } | null = null;
+    const active = () => !S().ui.multiview && S().ui.viewMode === 'scene' && S().ui.tool === 'select';
+    const keyMeshes = () => { const o: THREE.Object3D[] = []; scene.traverse(n => { const g = (n.userData as { gizmo?: { kind: string } }).gizmo; if (g && (g.kind === 'key' || g.kind === 'in' || g.kind === 'out')) o.push(n); }); return o; };
+    const wrapRect = () => (R3.wrap ?? dom).getBoundingClientRect();
+    const down = (e: PointerEvent) => {
+      if (!active() || e.button !== 0) return;
+      const r = dom.getBoundingClientRect();
+      rc.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
+      if (rc.intersectObjects(keyMeshes(), false).length) return; // pressing a key → let its handler run
+      const rr = wrapRect(); start = { x: e.clientX - rr.left, y: e.clientY - rr.top };
+      viewMarquee.rect = { x: start.x, y: start.y, w: 0, h: 0 }; S().bump();
+    };
+    const move = (e: PointerEvent) => {
+      if (!start) return; const rr = wrapRect(); const px = e.clientX - rr.left, py = e.clientY - rr.top;
+      viewMarquee.rect = { x: Math.min(start.x, px), y: Math.min(start.y, py), w: Math.abs(px - start.x), h: Math.abs(py - start.y) }; S().bump();
+    };
+    const up = () => {
+      if (!start) return; const rect = viewMarquee.rect; start = null; viewMarquee.rect = null;
+      if (rect && (rect.w > 3 || rect.h > 3)) {
+        const rr = wrapRect(); const c = S().active(); const ids: string[] = []; const v = new THREE.Vector3();
+        for (const k of c.keyframes) {
+          if (k.channel !== 'position' || !Array.isArray(k.value)) continue;
+          v.set(...(k.value as Vec3)).project(camera); if (v.z > 1) continue;
+          const sx = (v.x * 0.5 + 0.5) * rr.width, sy = (-v.y * 0.5 + 0.5) * rr.height;
+          if (sx >= rect.x && sx <= rect.x + rect.w && sy >= rect.y && sy <= rect.y + rect.h) ids.push(k.id);
+        }
+        S().setSelectedKeys(ids);
+      }
+      S().bump();
+    };
+    dom.addEventListener('pointerdown', down); dom.addEventListener('pointermove', move); dom.addEventListener('pointerup', up);
+    return () => { dom.removeEventListener('pointerdown', down); dom.removeEventListener('pointermove', move); dom.removeEventListener('pointerup', up); };
+  }, [gl, camera, scene]);
 
   const pk = keysOf(cam, 'position');
   const pts = useMemo(() => {
@@ -139,7 +180,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
           the camera body is tagged so useMultiviewInput can drag the camera per-view instead. */}
       <PivotControls matrix={matrix} autoTransform fixed scale={50} lineWidth={2} depthTest={false}
         disableScaling activeAxes={[true, true, true]}
-        disableAxes={multiview} disableSliders={multiview} disableRotations={multiview}
+        disableAxes={multiview || selectTool} disableSliders={multiview || selectTool} disableRotations={multiview || selectTool}
         onDragStart={onDragStart} onDrag={onDrag} onDragEnd={onDragEnd}>
         <group ref={bodyRef}>
           <mesh position={[0, 0, 0.08]} userData={{ gizmo: { kind: 'camera' } }}><boxGeometry args={[0.22, 0.16, 0.26]} /><meshStandardMaterial color="#15181b" roughness={0.5} metalness={0.6} /></mesh>
@@ -154,7 +195,18 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
         const kv = k.value as Vec3;
         const grab = (kind: 'key' | 'in' | 'out') => (e: { stopPropagation: () => void; nativeEvent: Event }) => {
           e.stopPropagation(); (e.nativeEvent as PointerEvent).stopImmediatePropagation?.();
-          dragTarget.current = { id: k.id, kind }; S().selectKey(k.id); S().setGizmoDragging(true);
+          if (kind === 'key' && (e.nativeEvent as PointerEvent).shiftKey) { S().toggleSelectKey(k.id); return; } // Shift+click: add/remove from selection
+          if (kind === 'key') {
+            // grabbing an unselected key selects it alone; grabbing a selected one keeps the whole
+            // selection and drags the group together (relative offsets preserved)
+            if (!S().ui.selectedKeyIds.includes(k.id)) S().selectKey(k.id);
+            const sel = S().ui.selectedKeyIds; const c0 = S().active();
+            const group = c0.keyframes.filter(kf => kf.channel === 'position' && sel.includes(kf.id) && Array.isArray(kf.value)).map(kf => ({ id: kf.id, orig: (kf.value as Vec3).slice() as Vec3 }));
+            dragTarget.current = { id: k.id, kind, group, anchor: (k.value as Vec3).slice() as Vec3 };
+          } else {
+            dragTarget.current = { id: k.id, kind }; S().selectKey(k.id);
+          }
+          S().setGizmoDragging(true);
         };
         // tangent handles: 'out' for every key but the last, 'in' for every key but the first
         const handles: { which: 'in' | 'out'; pos: Vec3 }[] = [];
@@ -189,7 +241,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
         // Screen-fixed sizing/billboarding is applied per quadrant by gizmoLayout (from the renderer).
         return (
           <>
-            <MultiviewGizmo origin={camPose} kind="camera" rotation={!cam.target} quaternion={[baseQuat.x, baseQuat.y, baseQuat.z, baseQuat.w]} />
+            {!selectTool && <MultiviewGizmo origin={camPose} kind="camera" rotation={!cam.target} quaternion={[baseQuat.x, baseQuat.y, baseQuat.z, baseQuat.w]} />}
             <MultiviewGizmo origin={poi} kind="poi" />
           </>
         );

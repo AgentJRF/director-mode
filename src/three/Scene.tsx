@@ -62,6 +62,7 @@ export default function Scene() {
   const mode = useStore(s => s.ui.viewMode);
   const multiview = useStore(s => s.ui.multiview);
   const gizmoDragging = useStore(s => s.ui.gizmoDragging);
+  const tool = useStore(s => s.ui.tool);
   const renderCamRef = useRef<THREE.PerspectiveCamera>(null);
   const sceneCamRef = useRef<THREE.PerspectiveCamera>(null);
   const quad = mode === 'scene' && multiview;
@@ -77,7 +78,7 @@ export default function Scene() {
       <CameraController renderCamRef={renderCamRef} />
       <FocusPicker />
       <TargetPicker />
-      {mode === 'scene' && !multiview && <OrbitControls makeDefault enableDamping dampingFactor={0.12} target={[0, 1.4, 0]} enabled={!gizmoDragging} enablePan screenSpacePanning panSpeed={1.1} minDistance={1.5} maxDistance={120} />}
+      {mode === 'scene' && !multiview && <OrbitControls makeDefault enableDamping dampingFactor={0.12} target={[0, 1.4, 0]} enabled={!gizmoDragging && tool !== 'select'} enablePan screenSpacePanning panSpeed={1.1} minDistance={1.5} maxDistance={120} />}
       {mode === 'scene' && !multiview && <EditorFly />}
       {mode === 'scene' && <SceneGizmos renderCamRef={renderCamRef} />}
       {mode === 'scene' && !multiview && <PoiControl />}

@@ -71,6 +71,7 @@ interface StoreState {
   selectTarget: (b: boolean) => void;
   selectKey: (id: string | null) => void;
   setSelectedKeys: (ids: string[]) => void;
+  toggleSelectKey: (id: string) => void;
   removeKeys: (ids: string[]) => void;
   upsertKey: (ch: Channel, value: Vec3 | number, time: number, source?: KeySource, ease?: Ease) => void;
   removeKey: (id: string) => void;
@@ -169,6 +170,7 @@ export const useStore = create<StoreState>((set, get) => {
     selectTarget: b => { get().ui.targetSelected = b; bump(); },
     selectKey: id => { get().ui.selectedKeyIds = id ? [id] : []; bump(); },
     setSelectedKeys: ids => { get().ui.selectedKeyIds = ids; bump(); },
+    toggleSelectKey: id => { const s = get().ui.selectedKeyIds; get().ui.selectedKeyIds = s.includes(id) ? s.filter(x => x !== id) : [...s, id]; bump(); },
     removeKeys: ids => { const c = active(); const set = new Set(ids); c.keyframes = c.keyframes.filter(k => !set.has(k.id)); get().ui.selectedKeyIds = get().ui.selectedKeyIds.filter(id => !set.has(id)); bump(); },
     upsertKey: (ch, value, time, source = 'manual', ease = 'easeInOut') => { upsertKeyOn(active(), ch, value, time, source, ease); bump(); },
     removeKey: id => { const c = active(); c.keyframes = c.keyframes.filter(k => k.id !== id); get().ui.selectedKeyIds = get().ui.selectedKeyIds.filter(x => x !== id); bump(); },

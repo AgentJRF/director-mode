@@ -12,6 +12,7 @@ import { Toast, Loading } from './ui/Toast';
 import ErrorBoundary from './ui/ErrorBoundary';
 import SplineOverlay from './three/SplineOverlay';
 import MultiviewOverlay from './three/MultiviewOverlay';
+import MarqueeOverlay from './three/MarqueeOverlay';
 import { S, useStore } from './store';
 import { applyLutToCanvas } from './lib/lut';
 import { R3 } from './three/shared';
@@ -68,6 +69,7 @@ export default function App() {
             </ErrorBoundary>
             <SplineOverlay />
             <MultiviewOverlay />
+            <MarqueeOverlay />
           </div>
         </div>
         <HUD />

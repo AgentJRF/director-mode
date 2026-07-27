@@ -6,10 +6,11 @@ import { keysOf, handleOffset, evaluate, poiPoint, round } from '../../lib/eval'
 import type { Vec3 } from '../../types';
 import { quadrantFor, subRectFor, ndcInSub, orthoCams, orthoState, planeAndAxesFor, type ViewId, type OrthoId, type SubRect } from './views';
 import { layoutGizmosForView } from './gizmoLayout';
+import { R3, viewMarquee } from '../shared';
 
 type Kind = 'key' | 'in' | 'out' | 'camera' | 'camera-axis' | 'camera-plane' | 'camera-rot' | 'poi' | 'poi-axis' | 'poi-plane';
 type GizmoTag = { id?: string; kind: Kind; axis?: number };
-type DragState = { id?: string; kind: Kind; axis?: number; viewId: ViewId; startAngle?: number; startQuat?: THREE.Quaternion; axisDir?: THREE.Vector3; u?: THREE.Vector3; v?: THREE.Vector3 };
+type DragState = { id?: string; kind: Kind; axis?: number; viewId: ViewId; startAngle?: number; startQuat?: THREE.Quaternion; axisDir?: THREE.Vector3; u?: THREE.Vector3; v?: THREE.Vector3; group?: { id: string; orig: Vec3 }[]; anchor?: Vec3 };
 
 const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
 const unitVec = (a: number) => new THREE.Vector3(a === 0 ? 1 : 0, a === 1 ? 1 : 0, a === 2 ? 1 : 0);
@@ -41,6 +42,8 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
     const rc = new THREE.Raycaster();
     let drag: DragState | null = null;
     let pan: { id: OrthoId; lastX: number; lastY: number } | null = null;
+    let marq: { sx: number; sy: number; viewId: ViewId } | null = null; // wrap-relative marquee start
+    const wrapOrigin = () => { const w = (R3.wrap ?? dom).getBoundingClientRect(); return { left: w.left, top: w.top }; };
 
     const active = () => S().ui.viewMode === 'scene' && S().ui.multiview;
     const camFor = (v: ViewId): THREE.Camera | null => (v === 'persp' ? sceneCamRef.current : orthoCams[v as OrthoId]);
@@ -74,8 +77,11 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
       const { viewId, sub } = quadrantFor(e.clientX, e.clientY, rect);
       const cam = camFor(viewId); if (!cam) return;
       layoutGizmosForView(cam, sub.h); // match the on-screen (screen-fixed) gizmo size before hit-testing
-      const hit = pick(cam, sub, e.clientX, e.clientY);
+      let hit = pick(cam, sub, e.clientX, e.clientY);
+      // Select tool acts on keyframes only — camera gizmo parts are inert (fall through to marquee)
+      if (hit && S().ui.tool === 'select' && (hit.kind === 'camera' || hit.kind === 'camera-axis' || hit.kind === 'camera-plane' || hit.kind === 'camera-rot')) hit = null;
       if (hit) {
+        if (hit.kind === 'key' && e.shiftKey && hit.id) { S().toggleSelectKey(hit.id); return; } // Shift+click: add/remove
         drag = { ...hit, viewId };
         // rotation ring: fix the grabbed axis (object/world) + capture start angle and orientation
         if (hit.kind === 'camera-rot' && !S().active().target) {
@@ -90,7 +96,21 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
           drag.axisDir = axisDir; drag.u = u; drag.v = v; drag.startAngle = startAngle;
           drag.startQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(d2r(pz.rotation[0]), d2r(pz.rotation[1]), d2r(pz.rotation[2]), 'YXZ'));
         }
-        S().selectKey(hit.id ?? null); S().setGizmoDragging(true);
+        if (hit.kind === 'key' && hit.id) {
+          // grabbing an unselected key selects it alone; a selected one keeps the group and drags it together
+          if (!S().ui.selectedKeyIds.includes(hit.id)) S().selectKey(hit.id);
+          const sel = S().ui.selectedKeyIds; const c0 = S().active();
+          drag.group = c0.keyframes.filter(kf => kf.channel === 'position' && sel.includes(kf.id) && Array.isArray(kf.value)).map(kf => ({ id: kf.id, orig: (kf.value as Vec3).slice() as Vec3 }));
+          const kk = c0.keyframes.find(kf => kf.id === hit.id); if (kk && Array.isArray(kk.value)) drag.anchor = (kk.value as Vec3).slice() as Vec3;
+        } else {
+          S().selectKey(hit.id ?? null);
+        }
+        S().setGizmoDragging(true);
+        try { dom.setPointerCapture(e.pointerId); } catch { /* best effort */ }
+      } else if (S().ui.tool === 'select') {
+        // Select tool: empty drag = marquee (rubber-band position keys in this quadrant)
+        const o = wrapOrigin(); marq = { sx: e.clientX - o.left, sy: e.clientY - o.top, viewId };
+        viewMarquee.rect = { x: marq.sx, y: marq.sy, w: 0, h: 0 }; S().bump();
         try { dom.setPointerCapture(e.pointerId); } catch { /* best effort */ }
       } else if (viewId !== 'persp') {
         pan = { id: viewId as OrthoId, lastX: e.clientX, lastY: e.clientY };
@@ -99,6 +119,11 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
 
     const move = (e: PointerEvent) => {
       if (drag) { applyDrag(e); return; }
+      if (marq) {
+        const o = wrapOrigin(); const px = e.clientX - o.left, py = e.clientY - o.top;
+        viewMarquee.rect = { x: Math.min(marq.sx, px), y: Math.min(marq.sy, py), w: Math.abs(px - marq.sx), h: Math.abs(py - marq.sy) };
+        S().bump(); return;
+      }
       if (pan) {
         const st = orthoState[pan.id]; const cam = orthoCams[pan.id];
         const worldPerPx = (cam.top - cam.bottom) / subRectFor(pan.id, dom.getBoundingClientRect()).h;
@@ -216,16 +241,17 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
       const curOff = d.kind === 'key' ? ([0, 0, 0] as Vec3) : handleOffset(pk, idx, d.kind as 'in' | 'out');
 
       const which = d.kind as 'in' | 'out';
+      const group = d.group ?? [{ id: k.id, orig: kv }]; const anchor = d.anchor ?? kv; // group drag moves all selected keys
       if (d.viewId === 'persp') {
         if (e.shiftKey) {
           const fwd = new THREE.Vector3(); cam.getWorldDirection(fwd); fwd.y = 0; if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1); fwd.normalize();
-          const anchor = d.kind === 'key' ? new THREE.Vector3(...kv) : new THREE.Vector3(kv[0] + curOff[0], kv[1] + curOff[1], kv[2] + curOff[2]);
-          if (!rc.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(fwd, anchor), p)) return;
-          if (d.kind === 'key') S().setKeyValueComp(k.id, 1, round(p.y, 3));
+          const a0 = d.kind === 'key' ? new THREE.Vector3(...kv) : new THREE.Vector3(kv[0] + curOff[0], kv[1] + curOff[1], kv[2] + curOff[2]);
+          if (!rc.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(fwd, a0), p)) return;
+          if (d.kind === 'key') { const dy = round(p.y, 3) - anchor[1]; for (const it of group) S().setKeyValueComp(it.id, 1, round(it.orig[1] + dy, 3)); }
           else S().setKeyTangent(k.id, which, [curOff[0], round(p.y - kv[1], 3), curOff[2]]);
         } else {
           if (!rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -kv[1]), p)) return;
-          if (d.kind === 'key') { S().setKeyValueComp(k.id, 0, round(p.x, 3)); S().setKeyValueComp(k.id, 2, round(p.z, 3)); }
+          if (d.kind === 'key') { const dx = round(p.x, 3) - anchor[0], dz = round(p.z, 3) - anchor[2]; for (const it of group) { S().setKeyValueComp(it.id, 0, round(it.orig[0] + dx, 3)); S().setKeyValueComp(it.id, 2, round(it.orig[2] + dz, 3)); } }
           else S().setKeyTangent(k.id, which, [round(p.x - kv[0], 3), curOff[1], round(p.z - kv[2], 3)]);
         }
         return;
@@ -234,11 +260,29 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
       const { plane, axes } = planeAndAxesFor(d.viewId as OrthoId, kv);
       if (!rc.ray.intersectPlane(plane, p)) return;
       const world = [p.x, p.y, p.z];
-      if (d.kind === 'key') { axes.forEach(a => S().setKeyValueComp(k.id, a, round(world[a], 3))); }
+      if (d.kind === 'key') { const dd = axes.map(a => round(world[a], 3) - anchor[a]); for (const it of group) axes.forEach((a, ai) => S().setKeyValueComp(it.id, a, round(it.orig[a] + dd[ai], 3))); }
       else { const off = curOff.slice() as Vec3; axes.forEach(a => { off[a] = round(world[a] - kv[a], 3); }); S().setKeyTangent(k.id, which, off); }
     };
 
-    const up = () => { if (drag) { drag = null; S().setGizmoDragging(false); } pan = null; };
+    const up = () => {
+      if (marq) {
+        const rect = viewMarquee.rect; const viewId = marq.viewId; marq = null; viewMarquee.rect = null;
+        if (rect && (rect.w > 3 || rect.h > 3)) {
+          const cam = camFor(viewId); const o = wrapOrigin(); const sub = subRectFor(viewId, dom.getBoundingClientRect());
+          const sl = sub.left - o.left, stp = sub.top - o.top; // sub-rect in wrap-relative px
+          const c = S().active(); const ids: string[] = []; const v = new THREE.Vector3();
+          if (cam) for (const k of c.keyframes) {
+            if (k.channel !== 'position' || !Array.isArray(k.value)) continue;
+            v.set(...(k.value as Vec3)).project(cam); if (v.z > 1) continue;
+            const sx = sl + (v.x * 0.5 + 0.5) * sub.w, sy = stp + (-v.y * 0.5 + 0.5) * sub.h;
+            if (sx >= rect.x && sx <= rect.x + rect.w && sy >= rect.y && sy <= rect.y + rect.h) ids.push(k.id);
+          }
+          S().setSelectedKeys(ids);
+        }
+        S().bump();
+      }
+      if (drag) { drag = null; S().setGizmoDragging(false); } pan = null;
+    };
     const wheel = (e: WheelEvent) => {
       if (!active()) return;
       const rect = dom.getBoundingClientRect();

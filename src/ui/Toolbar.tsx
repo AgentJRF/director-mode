@@ -1,9 +1,18 @@
 import { S } from '../store';
 import { useRev } from './bits';
 import type { Tool } from '../types';
+import type { ReactNode } from 'react';
 
-const TOOLS: { id: Tool; icon: string; title: string }[] = [
-  { id: 'select', icon: '⌖', title: 'Select (V)' },
+// classic selection-pointer arrow
+const SelectArrow = () => (
+  <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden>
+    <path d="M3 2 L3 13.2 L6.1 10.2 L8.3 14.8 L10.2 13.9 L8 9.4 L12.4 9.1 Z"
+      fill="currentColor" stroke="rgba(0,0,0,.5)" strokeWidth="0.6" strokeLinejoin="round" />
+  </svg>
+);
+
+const TOOLS: { id: Tool; icon: ReactNode; title: string }[] = [
+  { id: 'select', icon: <SelectArrow />, title: 'Select (V)' },
   { id: 'camera', icon: '🎥', title: 'Camera / orbit (C)' },
   { id: 'target', icon: '◎', title: 'Target (T)' },
   { id: 'optics', icon: '◉', title: 'Optics (O)' },
