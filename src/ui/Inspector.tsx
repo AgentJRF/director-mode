@@ -46,12 +46,15 @@ function Slider({ label, value, min, max, step, unit, prefix, onChange, disabled
 }
 
 function EaseCurve({ ease }: { ease: Ease }) {
-  const fn = EASES[ease] || EASES.linear; let d = ''; const N = 32;
-  for (let i = 0; i <= N; i++) { const t = i / N; const y = fn(t); d += (i ? 'L' : 'M') + (6 + t * 108).toFixed(1) + ',' + (58 - y * 52).toFixed(1) + ' '; }
+  const fn = EASES[ease] || EASES.linear; let d = ''; const N = 48;
+  for (let i = 0; i <= N; i++) { const t = i / N; const y = fn(t); d += (i ? 'L' : 'M') + (t * 100).toFixed(1) + ',' + (100 - y * 100).toFixed(1) + ' '; }
   return (
-    <svg width={120} height={64} style={{ background: 'var(--panel)', border: '1px solid var(--line-2)', borderRadius: 6, marginTop: 8 }}>
-      <line x1={6} y1={58} x2={114} y2={58} stroke="#25292d" /><line x1={6} y1={6} x2={6} y2={58} stroke="#25292d" />
-      <path d={d} fill="none" stroke="#f2a33c" strokeWidth={1.5} />
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height={128}
+      style={{ display: 'block', background: 'var(--panel)', border: '1px solid var(--line-2)', borderRadius: 6, marginTop: 8 }}>
+      <line x1="0" y1="50" x2="100" y2="50" stroke="#1c2024" strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />
+      <line x1="50" y1="0" x2="50" y2="100" stroke="#1c2024" strokeDasharray="3 4" vectorEffect="non-scaling-stroke" />
+      <path d={`${d} L100,100 L0,100 Z`} fill="rgba(242,163,60,0.14)" stroke="none" />
+      <path d={d} fill="none" stroke="#f2a33c" strokeWidth={2.5} vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -61,19 +64,8 @@ function KeyInspector({ k }: { k: Keyframe }) {
   return (
     <div className="sect" style={{ background: 'var(--panel-2)' }}>
       <div className="sect-t" style={{ color: 'var(--amber)' }}>Key — {CH_LABEL[k.channel]}<span className="st">{k.source}</span></div>
-      <div className="row"><label>Time</label>
-        <input type="number" step="0.05" min={0} max={st.project.timeline.duration} value={round(k.time, 3)}
-          onChange={e => st.setKeyTime(k.id, parseFloat(e.target.value) || 0)} /></div>
-      {k.channel === 'focalLength' ? (
-        <div className="row"><label>Focal</label>
-          <input type="number" step="1" value={round(k.value as number, 0)} onChange={e => st.setKeyFocal(k.id, parseFloat(e.target.value) || 0)} /></div>
-      ) : (
-        <div className="row"><label>{k.channel === 'position' ? 'Position' : k.channel === 'poi' ? 'Point of interest' : 'Rotation'}</label>
-          <div className="vec3">{['X', 'Y', 'Z'].map((lb, i) => (
-            <input key={lb} type="number" step="0.1" value={round((k.value as number[])[i], 2)}
-              onChange={e => st.setKeyValueComp(k.id, i, parseFloat(e.target.value) || 0)} />))}</div></div>
-      )}
-      <div className="sect-t" style={{ marginTop: 10 }}>Curve (incoming ease)</div>
+      {/* Time is edited on the timeline, value in the Transform panel below — this panel is the ease curve. */}
+      <div className="sect-t" style={{ marginTop: 2 }}>Curve (incoming ease)</div>
       <div className="ease-grid">
         {EASE_LIST.map(ez => <div key={ez} className={'ease-opt' + (k.ease === ez ? ' sel' : '')} onClick={() => st.setKeyEase(k.id, ez)}>{ez}</div>)}
       </div>
