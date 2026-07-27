@@ -82,6 +82,7 @@ interface StoreState {
   setKeyTangent: (id: string, which: 'in' | 'out', v: Vec3 | null) => void;
   setKeyFocal: (id: string, v: number) => void;
   setKeyEase: (id: string, e: Ease) => void;
+  setKeysEase: (ids: string[], e: Ease) => void;
   commitPose: (position: Vec3, rotation: Vec3) => void;
   addLut: (l: Omit<LUT, 'id'>) => void;
   setActiveLut: (id: string | null) => void;
@@ -181,6 +182,7 @@ export const useStore = create<StoreState>((set, get) => {
     setKeyTangent: (id, which, v) => { const k = active().keyframes.find(k => k.id === id); if (k) { const nv = v ? ([...v] as Vec3) : undefined; if (which === 'out') k.tangentOut = nv; else k.tangentIn = nv; } bump(); }, // v=null clears the tangent (back to auto/straight)
     setKeyFocal: (id, v) => { const k = active().keyframes.find(k => k.id === id); if (k) k.value = v; bump(); },
     setKeyEase: (id, e) => { const k = active().keyframes.find(k => k.id === id); if (k) k.ease = e; bump(); },
+    setKeysEase: (ids, e) => { const c = active(); c.keyframes.forEach(k => { if (ids.includes(k.id)) k.ease = e; }); bump(); },
     commitPose: (position, rotation) => {
       const c = active(); const t = get().project.timeline.playhead;
       if (keysOf(c, 'position').length) upsertKeyOn(c, 'position', position, t, 'manual');

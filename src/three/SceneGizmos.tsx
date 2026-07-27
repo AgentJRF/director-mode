@@ -129,9 +129,11 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
       viewMarquee.rect = { x: Math.min(start.x, px), y: Math.min(start.y, py), w: Math.abs(px - start.x), h: Math.abs(py - start.y) }; S().bump();
     };
     const up = () => {
-      if (!start) return; const rect = viewMarquee.rect; start = null; viewMarquee.rect = null;
-      if (rect && (rect.w > 3 || rect.h > 3)) {
-        const rr = wrapRect(); const c = S().active(); const ids: string[] = []; const v = new THREE.Vector3();
+      if (!start) return; const rect = viewMarquee.rect; const click = { ...start }; start = null; viewMarquee.rect = null;
+      const rr = wrapRect(); const c = S().active(); const v = new THREE.Vector3();
+      if (rect && (rect.w > 4 || rect.h > 4)) {
+        // drag → marquee multi-select of position keys
+        const ids: string[] = [];
         for (const k of c.keyframes) {
           if (k.channel !== 'position' || !Array.isArray(k.value)) continue;
           v.set(...(k.value as Vec3)).project(camera); if (v.z > 1) continue;
@@ -139,6 +141,19 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
           if (sx >= rect.x && sx <= rect.x + rect.w && sy >= rect.y && sy <= rect.y + rect.h) ids.push(k.id);
         }
         S().setSelectedKeys(ids);
+      } else {
+        // click → select the path SEGMENT under the cursor (its END key carries the incoming ease)
+        const pkl = keysOf(c, 'position'); let bestEnd: string | null = null, bestD = 12;
+        for (let i = 0; i < pkl.length - 1; i++) {
+          for (let s = 1; s <= 11; s++) {
+            v.set(...(evalChannel(c, 'position', lerp(pkl[i].time, pkl[i + 1].time, s / 12)) as Vec3)).project(camera);
+            if (v.z > 1) continue;
+            const sx = (v.x * 0.5 + 0.5) * rr.width, sy = (-v.y * 0.5 + 0.5) * rr.height;
+            const d = Math.hypot(sx - click.x, sy - click.y);
+            if (d < bestD) { bestD = d; bestEnd = pkl[i + 1].id; }
+          }
+        }
+        S().selectKey(bestEnd); // segment end key, or clear if the click missed the path
       }
       S().bump();
     };
@@ -153,24 +168,42 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
     return a;
   }, [rev]);
 
-  // Optional per-vertex gradient on the path, normalized to the path's own range, toggled from the
-  // timeline. Distinct ramps per mode: HEIGHT (Y) = yellow → red; SPEED (segment length, since samples
-  // are uniform in time) = white → blue (Cinema-4D style).
+  // Motion dots: sampled at EVEN TIME steps → their on-path spacing visualizes speed/easing
+  // (bunched = slow, spread = fast). Editing an ease redistributes them live.
+  const dots = useMemo(() => {
+    if (pk.length < 2) return [] as Vec3[]; const a: Vec3[] = []; const N = 28;
+    for (let i = 0; i <= N; i++) { const t = lerp(pk[0].time, pk[pk.length - 1].time, i / N); a.push(evalChannel(cam, 'position', t) as Vec3); }
+    return a;
+  }, [rev]);
+
+  // Highlighted sub-path for the currently-selected segment (a single non-first position key → the
+  // segment that ENDS on it). Lets the user see which segment's curve they're editing.
+  const selSeg = useMemo(() => {
+    const ids = st.ui.selectedKeyIds; if (ids.length !== 1) return null;
+    const idx = pk.findIndex(k => k.id === ids[0]); if (idx <= 0) return null;
+    const a: Vec3[] = []; for (let s = 0; s <= 32; s++) a.push(evalChannel(cam, 'position', lerp(pk[idx - 1].time, pk[idx].time, s / 32)) as Vec3);
+    return a;
+  }, [rev]);
+
+  // Optional per-vertex gradient on the path, toggled from the timeline.
+  //  HEIGHT (Y) = yellow → red, normalized to the path's own Y range.
+  //  SPEED = white → blue, keyed to how much FASTER than the path's mean a sample is — so a constant
+  //  speed (e.g. linear ease on straight segments) stays ONE uniform colour and only real
+  //  accelerations turn blue (segment length ∝ speed, since samples are uniform in time).
   const splineViz = st.ui.splineViz;
   const vizColors = useMemo(() => {
     if (splineViz === 'none' || pts.length < 2) return null;
-    const A = splineViz === 'height' ? [1.0, 0.92, 0.05] : [0.85, 0.95, 1.0];  // low / slow
+    const A = splineViz === 'height' ? [1.0, 0.92, 0.05] : [0.86, 0.94, 1.0];  // low / baseline
     const B = splineViz === 'height' ? [1.0, 0.04, 0.0] : [0.0, 0.22, 1.0];    // high / fast
-    const gain = splineViz === 'speed' ? 2.6 : 1.6; // >1 pushes values toward the extremes (speed strongest)
     const vals = splineViz === 'height'
       ? pts.map(p => p[1])
       : pts.map((p, i) => { const q = pts[Math.min(i + 1, pts.length - 1)]; return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]); });
-    let lo = Infinity, hi = -Infinity; for (const v of vals) { if (v < lo) lo = v; if (v > hi) hi = v; }
-    const span = hi - lo;
+    let lo = Infinity, hi = -Infinity, sum = 0; for (const v of vals) { if (v < lo) lo = v; if (v > hi) hi = v; sum += v; }
+    const span = hi - lo, mean = sum / vals.length || 1e-6;
     return vals.map(v => {
-      let f = span > 1e-6 ? Math.min(1, Math.max(0, (v - lo) / span)) : 0;
-      f = Math.min(1, Math.max(0, (f - 0.5) * gain + 0.5)); // contrast
-      f = f * f * (3 - 2 * f); // smoothstep — pushes low/high apart so the gradient reads stronger
+      let f: number;
+      if (splineViz === 'speed') f = Math.min(1, Math.max(0, (v / mean - 1) * 1.6)); // constant → 0 (uniform); faster than mean → blue
+      else { f = span > 1e-6 ? Math.min(1, Math.max(0, (v - lo) / span)) : 0; f = f * f * (3 - 2 * f); }
       return [lerp(A[0], B[0], f), lerp(A[1], B[1], f), lerp(A[2], B[2], f)] as [number, number, number];
     });
   }, [rev, splineViz, pts]);
@@ -192,6 +225,15 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
       {pts.length >= 2 && (vizColors
         ? <Line points={pts} vertexColors={vizColors} lineWidth={3.5} transparent opacity={1} />
         : <Line points={pts} color="#f2a33c" lineWidth={2} transparent opacity={0.9} />)}
+      {/* highlighted selected segment (the one whose curve is being edited) */}
+      {selSeg && <Line points={selSeg} color="#ffffff" lineWidth={5} transparent opacity={0.95} />}
+      {/* motion dots (even-time samples) — spacing shows speed/easing */}
+      {dots.map((d, i) => (
+        <mesh key={i} position={d} renderOrder={1}>
+          <sphereGeometry args={[0.032, 8, 8]} />
+          <meshBasicMaterial color="#e6edf5" depthTest={false} transparent opacity={0.9} />
+        </mesh>
+      ))}
       {pk.map((k, i) => {
         const sel = st.ui.selectedKeyIds.includes(k.id);
         const kv = k.value as Vec3;

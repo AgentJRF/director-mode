@@ -59,18 +59,24 @@ function EaseCurve({ ease }: { ease: Ease }) {
   );
 }
 
-function KeyInspector({ k }: { k: Keyframe }) {
+function KeyInspector({ ks }: { ks: Keyframe[] }) {
   const st = S();
+  const ids = ks.map(k => k.id);
+  const single = ks.length === 1;
+  const eases = new Set(ks.map(k => k.ease));
+  const common = eases.size === 1 ? ks[0].ease : null; // null = mixed
   return (
     <div className="sect" style={{ background: 'var(--panel-2)' }}>
-      <div className="sect-t" style={{ color: 'var(--amber)' }}>Key — {CH_LABEL[k.channel]}<span className="st">{k.source}</span></div>
-      {/* Time is edited on the timeline, value in the Transform panel below — this panel is the ease curve. */}
-      <div className="sect-t" style={{ marginTop: 2 }}>Curve (incoming ease)</div>
-      <div className="ease-grid">
-        {EASE_LIST.map(ez => <div key={ez} className={'ease-opt' + (k.ease === ez ? ' sel' : '')} onClick={() => st.setKeyEase(k.id, ez)}>{ez}</div>)}
+      <div className="sect-t" style={{ color: 'var(--amber)' }}>
+        {single ? <>Key — {CH_LABEL[ks[0].channel]}<span className="st">{ks[0].source}</span></> : <>{ks.length} keys<span className="st">selected</span></>}
       </div>
-      <EaseCurve ease={k.ease} />
-      <button className="btn-sm danger btn-full" style={{ marginTop: 10 }} onClick={() => st.removeKey(k.id)}>Delete key</button>
+      {/* Time is edited on the timeline, value in the Transform panel below — this panel is the ease curve. */}
+      <div className="sect-t" style={{ marginTop: 2 }}>Curve (incoming ease){!single && common === null && <span className="st">mixed</span>}</div>
+      <div className="ease-grid">
+        {EASE_LIST.map(ez => <div key={ez} className={'ease-opt' + (common === ez ? ' sel' : '')} onClick={() => st.setKeysEase(ids, ez)}>{ez}</div>)}
+      </div>
+      <EaseCurve ease={common ?? ks[0].ease} />
+      <button className="btn-sm danger btn-full" style={{ marginTop: 10 }} onClick={() => st.removeKeys(ids)}>{single ? 'Delete key' : `Delete ${ks.length} keys`}</button>
     </div>
   );
 }
@@ -78,13 +84,13 @@ function KeyInspector({ k }: { k: Keyframe }) {
 export default function Inspector() {
   useRev();
   const st = S(); const cam = st.active();
-  const selKey = st.ui.selectedKeyIds.length === 1 ? cam.keyframes.find(k => k.id === st.ui.selectedKeyIds[0]) : undefined;
+  const selKeys = cam.keyframes.filter(k => st.ui.selectedKeyIds.includes(k.id));
   const p = evaluate(cam, st.project.timeline.playhead);
   return (
     <div id="inspector">
       <Outliner />
 
-      {selKey && <KeyInspector k={selKey} />}
+      {selKeys.length > 0 && <KeyInspector ks={selKeys} />}
 
       <div className="sect">
         <div className="sect-t">Transform</div>
