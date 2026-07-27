@@ -122,7 +122,7 @@ export default function Timeline() {
             style={{ opacity: st.ui.selectedKeyIds.length ? 1 : 0.4 }}
             onClick={() => { if (st.ui.selectedKeyIds.length) S().removeKeys(st.ui.selectedKeyIds); }}>🗑</button>
         </div>
-        <span className="tc mono" title="Timecode H;MM;SS;FF">{toTimecode(tl.playhead, fps)}</span>
+        <span className="tc mono" title={durUnit === 'f' ? 'Frame' : 'Timecode H;MM;SS;FF'}>{durUnit === 'f' ? Math.round(tl.playhead * fps) + ' f' : toTimecode(tl.playhead, fps)}</span>
         <div className="tl-spacer" />
         <label className="tl-field">fps
           <select value={fps} onChange={e => S().setFps(+e.target.value)}>
@@ -147,7 +147,7 @@ export default function Timeline() {
             return (
               <g key={f}>
                 <line x1={px} y1={label ? TOP_H - 8 : TOP_H - 4} x2={px} y2={label ? H : TOP_H} stroke={label ? '#232a2f' : '#1a1e21'} />
-                {label && <text x={px + 3} y={13} fill="#6b747c" fontSize={9} fontFamily="monospace">{toTimecode(f / fps, fps)}</text>}
+                {label && <text x={px + 3} y={13} fill="#6b747c" fontSize={9} fontFamily="monospace">{durUnit === 'f' ? f : toTimecode(f / fps, fps)}</text>}
               </g>
             );
           })}
