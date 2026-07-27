@@ -112,6 +112,26 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
     return a;
   }, [rev]);
 
+  // Optional per-vertex gradient on the path, normalized to the path's own range, toggled from the
+  // timeline. Distinct ramps per mode: HEIGHT (Y) = yellow → red; SPEED (segment length, since samples
+  // are uniform in time) = white → blue (Cinema-4D style).
+  const splineViz = st.ui.splineViz;
+  const vizColors = useMemo(() => {
+    if (splineViz === 'none' || pts.length < 2) return null;
+    const A = splineViz === 'height' ? [1.0, 0.92, 0.05] : [1.0, 1.0, 1.0];  // low / slow
+    const B = splineViz === 'height' ? [1.0, 0.04, 0.0] : [0.0, 0.34, 1.0];  // high / fast
+    const vals = splineViz === 'height'
+      ? pts.map(p => p[1])
+      : pts.map((p, i) => { const q = pts[Math.min(i + 1, pts.length - 1)]; return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]); });
+    let lo = Infinity, hi = -Infinity; for (const v of vals) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    const span = hi - lo;
+    return vals.map(v => {
+      let f = span > 1e-6 ? Math.min(1, Math.max(0, (v - lo) / span)) : 0;
+      f = f * f * (3 - 2 * f); // smoothstep — pushes low/high apart so the gradient reads stronger
+      return [lerp(A[0], B[0], f), lerp(A[1], B[1], f), lerp(A[2], B[2], f)] as [number, number, number];
+    });
+  }, [rev, splineViz, pts]);
+
   return (
     <>
       <primitive object={helper} />
@@ -126,7 +146,9 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
           <mesh position={[0, 0, -0.12]} rotation={[Math.PI / 2, 0, 0]} userData={{ gizmo: { kind: 'camera' } }}><cylinderGeometry args={[0.07, 0.09, 0.14, 20]} /><meshStandardMaterial color="#0c0e10" roughness={0.4} metalness={0.7} /></mesh>
         </group>
       </PivotControls>
-      {pts.length >= 2 && <Line points={pts} color="#f2a33c" lineWidth={2} transparent opacity={0.9} />}
+      {pts.length >= 2 && (vizColors
+        ? <Line points={pts} vertexColors={vizColors} lineWidth={3.5} transparent opacity={1} />
+        : <Line points={pts} color="#f2a33c" lineWidth={2} transparent opacity={0.9} />)}
       {pk.map((k, i) => {
         const sel = st.ui.selectedKeyIds.includes(k.id);
         const kv = k.value as Vec3;

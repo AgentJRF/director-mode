@@ -195,6 +195,13 @@ export default function Timeline() {
       </div>
 
       <div className="tl-zoom">
+        <span className="tl-viz-label">Path colour</span>
+        <button className={'btn-sm tl-viz height' + (st.ui.splineViz === 'height' ? ' on' : '')}
+          title="Colour the camera path by height — yellow (low) → red (high)"
+          onClick={() => S().setSplineViz(st.ui.splineViz === 'height' ? 'none' : 'height')}>Height</button>
+        <button className={'btn-sm tl-viz speed' + (st.ui.splineViz === 'speed' ? ' on' : '')}
+          title="Colour the camera path by speed — white (slow) → blue (fast)"
+          onClick={() => S().setSplineViz(st.ui.splineViz === 'speed' ? 'none' : 'speed')}>Speed</button>
         <span className="mtn" style={{ marginLeft: 'auto' }}>▁</span>
         <input type="range" min={1} max={30} step={0.1} value={zoom} onChange={e => setZoom(parseFloat(e.target.value))} title="Zoom timeline" />
         <span className="mtn" style={{ fontSize: 13 }}>▂▄█</span>
