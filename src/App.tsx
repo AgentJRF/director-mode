@@ -25,11 +25,23 @@ export default function App() {
   const split = useStore(s => s.ui.split);
   const frameRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  // Resizable panels — inspector width & timeline height (persisted).
+  const stageRef = useRef<HTMLDivElement>(null);
+  // Resizable panels — inspector width & timeline height & split divider (persisted).
   const [insW, setInsW] = useState(() => cl(+(localStorage.getItem('dm.insW') || '300'), 220, 560));
   const [tlH, setTlH] = useState(() => cl(+(localStorage.getItem('dm.tlH') || '224'), 120, 640));
+  const [splitPos, setSplitPos] = useState(() => cl(+(localStorage.getItem('dm.splitPos') || '0.5'), 0.2, 0.8));
   useEffect(() => { localStorage.setItem('dm.insW', String(insW)); }, [insW]);
   useEffect(() => { localStorage.setItem('dm.tlH', String(tlH)); }, [tlH]);
+  useEffect(() => { localStorage.setItem('dm.splitPos', String(splitPos)); }, [splitPos]);
+
+  const dragSplit = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const handle = e.currentTarget as HTMLElement; handle.classList.add('drag');
+    const rect = stageRef.current!.getBoundingClientRect();
+    const onMove = (ev: PointerEvent) => setSplitPos(cl((ev.clientX - rect.left) / rect.width, 0.2, 0.8));
+    const onUp = () => { handle.classList.remove('drag'); window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
+    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+  };
 
   const dragPanel = (axis: 'v' | 'h') => (e: React.PointerEvent) => {
     e.preventDefault();
@@ -53,7 +65,7 @@ export default function App() {
     R3.wrap = wrapRef.current; fit();
     window.addEventListener('resize', fit);
     return () => window.removeEventListener('resize', fit);
-  }, [rev, insW, tlH]);
+  }, [rev, insW, tlH, splitPos, split]);
 
   useEffect(() => { applyLutToCanvas(S().project); }, [rev]);
 
@@ -82,8 +94,8 @@ export default function App() {
       <Toolbar />
       <div className="splitter splitter-v" style={{ right: insW }} onPointerDown={dragPanel('v')} title="Drag to resize the inspector" />
       <div className="splitter splitter-h" style={{ right: insW, bottom: tlH }} onPointerDown={dragPanel('h')} title="Drag to resize the timeline" />
-      <div id="stage" className={split ? 'split' : ''}>
-        <div id="viewport-frame" ref={frameRef}>
+      <div id="stage" className={split ? 'split' : ''} ref={stageRef}>
+        <div id="viewport-frame" ref={frameRef} style={split ? { right: `${(1 - splitPos) * 100}%` } : undefined}>
           <div id="canvas-wrap" ref={wrapRef}>
             <ErrorBoundary label="Scene 3D">
               <Scene />
@@ -94,10 +106,13 @@ export default function App() {
           </div>
         </div>
         {split && (
-          <div className="split-right">
-            <span className="split-tag">Camera</span>
-            <ErrorBoundary label="Camera preview"><CameraPovPreview /></ErrorBoundary>
-          </div>
+          <>
+            <div className="split-divider" style={{ left: `${splitPos * 100}%` }} onPointerDown={dragSplit} title="Drag to resize the split" />
+            <div className="split-right" style={{ width: `${(1 - splitPos) * 100}%` }}>
+              <span className="split-tag">Camera</span>
+              <ErrorBoundary label="Camera preview"><CameraPovPreview /></ErrorBoundary>
+            </div>
+          </>
         )}
         <HUD />
         <ViewPills />
