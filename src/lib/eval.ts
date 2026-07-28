@@ -73,6 +73,8 @@ export function evalChannel(cam: Camera, ch: Channel, t: number): Vec3 | number 
 
 // Object bounding-box centers, registered by the scene so target look-at can resolve them.
 export const OBJECT_CENTERS: Record<string, Vec3> = { product: [0, 0.9, 0], pedestal: [0, 0.25, 0] };
+// Comfortable framing distance per object (world units) — used so preset departures aren't too tight.
+export const OBJECT_FRAME: Record<string, number> = {};
 
 // Scene objects exposed in the UI (target stack / outliner).
 export const SCENE_OBJECTS: { id: string; label: string }[] = [

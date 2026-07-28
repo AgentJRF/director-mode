@@ -117,7 +117,7 @@ export const useStore = create<StoreState>((set, get) => {
 
   return {
     project, rev: 0,
-    ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, targetSelected: false, multiview: false, motionBlur: true, splineViz: 'none', hidden: {} },
+    ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, targetSelected: false, multiview: false, motionBlur: false, splineViz: 'none', hidden: {} },
     bump, active,
     setTool: t => { get().ui.tool = t; bump(); },
     toast: m => { get().ui.toast = m; bump(); setTimeout(() => { if (get().ui.toast === m) { get().ui.toast = ''; bump(); } }, 2600); },

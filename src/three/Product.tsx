@@ -2,7 +2,7 @@ import { useGLTF } from '@react-three/drei';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { PIVOT, S, hasAnim, useStore } from '../store';
-import { OBJECT_CENTERS, eulerFromLookAt, clamp } from '../lib/eval';
+import { OBJECT_CENTERS, OBJECT_FRAME, eulerFromLookAt, clamp } from '../lib/eval';
 import type { Vec3 } from '../types';
 
 const URL = '/asset/studio_packshot.gltf';
@@ -27,6 +27,9 @@ export default function Product() {
     PIVOT.set(0, data.centerY, 0);
     OBJECT_CENTERS.product = [0, data.centerY, 0];
     OBJECT_CENTERS.pedestal = [0, 0.25, 0];
+    // Head-on framing needs a bit more room than the 3/4 default (we see the widest profile).
+    OBJECT_FRAME.product = Math.max(data.maxDimS * 2.9, 4.5);
+    OBJECT_FRAME.pedestal = Math.max(data.maxDimS * 2.9, 4.5);
     const st = S(); const cam = st.active();
     if (!hasAnim(cam)) {
       const dist = Math.max(data.maxDimS * 2.2, 3.6);

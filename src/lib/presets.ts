@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Camera, Channel, Ease, Keyframe, Vec3 } from '../types';
-import { evaluate, eulerFromLookAt, keysOf, poseToSpherical, sphericalToPose, clamp, lerp, evalChannel, targetPoint } from './eval';
+import { evaluate, eulerFromLookAt, keysOf, poseToSpherical, sphericalToPose, clamp, lerp, evalChannel, targetPoint, OBJECT_FRAME } from './eval';
 import { S, PIVOT, upsertKeyOn } from '../store';
 
 export interface PresetOpts { duration?: number; amplitude?: number; ease?: Ease; dir?: 1 | -1; }
@@ -14,7 +14,11 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
   // Movement presets pivot around the camera's TARGET (fallback: global pivot).
   const pivot = cam.target ? new THREE.Vector3(...targetPoint(cam.target)) : PIVOT;
   const sph = poseToSpherical(base.position, pivot);
-  sph.theta = 0; // every preset STARTS facing the object (front, +Z), keeping the current distance & height
+  sph.theta = 0; // every preset STARTS facing the object (front, +Z), keeping the current elevation
+  // Frame at a comfortable distance for an object target (head-on shows the widest profile), so the
+  // departure isn't zoomed into the model. Never move closer than the current distance.
+  const frameDist = cam.target?.type === 'object' && cam.target.objectId ? OBJECT_FRAME[cam.target.objectId] : undefined;
+  if (frameDist) sph.r = Math.max(sph.r, frameDist);
   const startPos = sphericalToPose(sph, pivot);
   const setKey = (ch: Channel, val: Vec3 | number, t: number, ez: Ease) => upsertKeyOn(cam, ch, val, t, 'preset', ez);
   cam.keyframes = []; // a preset REPLACES the current move (presets don't stack)
