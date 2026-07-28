@@ -29,6 +29,15 @@ npm run dev        # http://127.0.0.1:5173
 
 Build de production : `npm run build` puis `npm run preview`.
 
+### IA — match caméra depuis une image (optionnel)
+« AI image » (barre Générateurs) : on **upload une photo** et l'IA estime l'angle, la focale et
+l'ouverture pour composer le plan (sans poser de clés). L'appel passe par un **proxy local** du
+serveur Vite (`POST /api/match-camera`, voir `vite.config.ts`) qui garde la clé côté serveur.
+Copie `.env.example` en `.env` et renseigne `ANTHROPIC_API_KEY` pour la vraie estimation Claude
+vision. **Sans clé**, l'app retombe sur une estimation **heuristique locale** (badge « estimated »)
+— le flux marche quand même. Toute modif de `vite.config.ts`/`.env` nécessite un **redémarrage** du
+serveur dev.
+
 > Windows : si `node` n'est pas dans le PATH du terminal, ouvre un nouveau terminal après
 > l'install de Node, ou ajoute `C:\Program Files\nodejs` au PATH.
 

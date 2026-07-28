@@ -90,6 +90,9 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 .val-input::-webkit-outer-spin-button,.val-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .val-input:hover{border-color:#3d444a}
 .val-input:focus{outline:none;border-color:var(--amber);background:var(--panel-2)}
+/* AI image upload dropzone */
+.ai-drop{display:flex;align-items:center;justify-content:center;min-height:130px;border:1.5px dashed var(--line-2);border-radius:8px;cursor:pointer;padding:12px;margin-top:8px;background:var(--panel);text-align:center}
+.ai-drop:hover{border-color:var(--amber-dim)}
 input[type=range]{-webkit-appearance:none;height:3px;background:var(--line-2);border-radius:2px;outline:none;flex:1;min-width:70px}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--ink);cursor:pointer;border:2px solid var(--panel)}
 input[type=range].amber::-webkit-slider-thumb{background:var(--amber)}

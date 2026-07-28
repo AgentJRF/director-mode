@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Secrets — clé API IA (proxy local Claude vision)
+.env
+.env.*
+!.env.example
+
 # Asset produit © Adobe Inc. — hors dépôt, récupéré via scripts/fetch-asset.ps1
 /public/asset/
 

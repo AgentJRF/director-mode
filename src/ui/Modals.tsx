@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { S, PIVOT } from '../store';
 import { useRev, grad } from './bits';
-import { evaluate, eulerFromLookAt } from '../lib/eval';
+import { evaluate, eulerFromLookAt, sphericalToPose, clamp } from '../lib/eval';
 import { applyPreset, resampleChannel, fuseAB } from '../lib/presets';
 import { LUT_PRESETS, applyLutToCanvas } from '../lib/lut';
 import type { Vec3 } from '../types';
@@ -18,14 +18,10 @@ function Shell({ title, children, footer }: { title: string; children: React.Rea
   );
 }
 
-const AI_IMAGES = [
-  { name: 'Hero low-angle', thumb: grad('#243b55', '#141e30'), pose: { position: [2.6, 0.7, 4.4] as Vec3, focal: 35, aperture: 1.8 }, confidence: 0.88 },
-  { name: 'Top-down', thumb: grad('#3a2e2a', '#171310'), pose: { position: [0.5, 6.2, 2.2] as Vec3, focal: 50, aperture: 5.6 }, confidence: 0.74 },
-  { name: 'Tight profile', thumb: grad('#2b3a2e', '#12160f'), pose: { position: [5.4, 1.1, 0.6] as Vec3, focal: 85, aperture: 2.0 }, confidence: 0.81 },
-  { name: '3/4 wide', thumb: grad('#2e2a3a', '#13111a'), pose: { position: [4.2, 2.4, 5.0] as Vec3, focal: 28, aperture: 4.0 }, confidence: 0.69 },
-  { name: 'Low angle', thumb: grad('#3a2233', '#1a0f16'), pose: { position: [3.0, 0.35, 3.6] as Vec3, focal: 24, aperture: 2.8 }, confidence: 0.77 },
-  { name: 'Macro detail', thumb: grad('#26323a', '#0f1418'), pose: { position: [2.2, 0.8, 2.4] as Vec3, focal: 100, aperture: 1.4 }, confidence: 0.63 },
-];
+// Camera estimate returned by /api/match-camera (Claude vision or heuristic fallback).
+type Estimate = { azimuth_deg: number; elevation_deg: number; distance_factor: number; focal_mm: number; aperture_f: number; confidence: number; reasoning: string; mocked?: boolean };
+type MatchForm = { azimuth: number; elevation: number; distance: number; focal: number; aperture: number };
+
 const AI_VIDEOS = [
   { name: 'Orbital reveal', gesture: 'orbit', thumb: grad('#243b55', '#141e30'), params: { duration: 4, amplitude: 0.9, ease: 'easeInOut' as const }, confidence: 0.82 },
   { name: 'Dramatic push-in', gesture: 'dolly', thumb: grad('#3a2e2a', '#171310'), params: { duration: 3, amplitude: 1.1, ease: 'easeIn' as const }, confidence: 0.86 },
@@ -70,43 +66,91 @@ function InterpModal() {
 }
 
 function AIImageModal() {
-  const [sel, setSel] = useState<number | null>(null);
-  const [review, setReview] = useState(false);
-  const [pose, setPose] = useState({ focal: 35, aperture: 2, position: [0, 0, 0] as Vec3 });
-  const ref = sel != null ? AI_IMAGES[sel] : null;
-  if (review && ref) {
+  const [img, setImg] = useState<{ data: string; media: string; url: string; w: number; h: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [est, setEst] = useState<Estimate | null>(null);
+  const [form, setForm] = useState<MatchForm | null>(null);
+
+  const onFile = (f: File | undefined) => {
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      const url = rd.result as string;
+      const data = url.slice(url.indexOf(',') + 1);
+      const media = url.slice(5, url.indexOf(';'));
+      const im = new Image();
+      im.onload = () => setImg({ data, media, url, w: im.naturalWidth, h: im.naturalHeight });
+      im.src = url;
+    };
+    rd.readAsDataURL(f);
+  };
+
+  const analyze = async () => {
+    if (!img) { S().toast('Upload an image first'); return; }
+    setBusy(true);
+    try {
+      const r = await fetch('/api/match-camera', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ imageBase64: img.data, mediaType: img.media, width: img.w, height: img.h }) });
+      const e = await r.json() as Estimate;
+      setEst(e);
+      setForm({ azimuth: e.azimuth_deg, elevation: e.elevation_deg, distance: e.distance_factor, focal: e.focal_mm, aperture: e.aperture_f });
+    } catch { S().toast('AI request failed'); }
+    setBusy(false);
+  };
+
+  const apply = () => {
+    if (!form) return;
+    const r = clamp(form.distance * 2, 1.6, 14); // product is ~2 units tall (Product.tsx normalises height→2)
+    const theta = form.azimuth * Math.PI / 180;
+    const phi = clamp((90 - form.elevation) * Math.PI / 180, 0.12, Math.PI - 0.12);
+    const pos = sphericalToPose({ r, theta, phi }, PIVOT);
+    const st = S(); const cam = st.active();
+    cam.transform.position = pos;
+    cam.transform.rotation = eulerFromLookAt(pos, PIVOT.toArray() as Vec3);
+    cam.optics.focalLength = clamp(form.focal, 14, 200);
+    cam.optics.aperture = clamp(form.aperture, 1.4, 16);
+    st.setModal(null); st.toast('Pose composed from image (no keys)'); st.bump();
+  };
+
+  if (est && form) {
+    const num = (label: string, key: keyof MatchForm, step: number, min: number, max: number) => (
+      <div className="row"><label>{label}</label>
+        <input type="number" step={step} value={form[key]} style={{ width: 80 }}
+          onChange={e => setForm({ ...form, [key]: clamp(parseFloat(e.target.value) || 0, min, max) })} /></div>
+    );
     return (
-      <Shell title="AI review · Still shot"
-        footer={<><button className="tbtn" onClick={() => setReview(false)}>← Back</button>
-          <button className="tbtn primary" onClick={() => {
-            const st = S(); const cam = st.active();
-            cam.transform.position = pose.position;
-            cam.transform.rotation = eulerFromLookAt(pose.position, PIVOT.toArray() as Vec3);
-            cam.optics.focalLength = pose.focal; cam.optics.aperture = pose.aperture;
-            st.setModal(null); st.toast('Pose composed (no keys) — timeline unchanged'); st.bump();
-          }}>Apply pose</button></>}>
-        <div className="row"><label>Confidence</label><ConfBar c={ref.confidence} /></div>
-        <p className="hint">Estimated values — adjustable before applying. Nothing is applied irreversibly.</p>
-        <div className="row"><label>Focal</label><input type="number" value={pose.focal} onChange={e => setPose({ ...pose, focal: +e.target.value })} /></div>
-        <div className="row"><label>Aperture</label><input type="number" step="0.1" value={pose.aperture} onChange={e => setPose({ ...pose, aperture: +e.target.value })} /></div>
-        <div className="row"><label>Position</label><span className="val">{pose.position.map(v => v.toFixed(1)).join(', ')}</span></div>
-        <label className="checkline"><input type="checkbox" defaultChecked /> Set as start pose</label>
+      <Shell title="AI review · Match camera from image"
+        footer={<><button className="tbtn" onClick={() => { setEst(null); setForm(null); }}>← Back</button>
+          <button className="tbtn primary" onClick={apply}>Apply pose</button></>}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {img && <img src={img.url} alt="reference" style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line-2)' }} />}
+          <div style={{ flex: 1 }}>
+            <div className="row" style={{ marginTop: 0 }}><label>Confidence</label><ConfBar c={est.confidence} /></div>
+            {est.mocked && <span className="badge proto">estimated · no API key</span>}
+            <p className="hint" style={{ marginTop: 6 }}>{est.reasoning}</p>
+          </div>
+        </div>
+        <div className="sect-t" style={{ padding: 0, margin: '12px 0 2px' }}>Estimated framing — adjustable</div>
+        {num('Azimuth °', 'azimuth', 1, -180, 180)}
+        {num('Elevation °', 'elevation', 1, -25, 85)}
+        {num('Distance ×', 'distance', 0.1, 1.2, 7)}
+        {num('Focal mm', 'focal', 1, 14, 200)}
+        {num('Aperture f/', 'aperture', 0.1, 1.4, 16)}
+        <p className="hint">Composes a shot — writes no keyframes. The timeline is unchanged.</p>
       </Shell>
     );
   }
+
   return (
     <Shell title="AI · Match camera from image"
       footer={<><button className="tbtn" onClick={() => S().setModal(null)}>Cancel</button>
-        <button className="tbtn primary" onClick={() => { if (sel == null) { S().toast('Pick a reference'); return; } setPose({ ...AI_IMAGES[sel].pose }); setReview(true); }}>Analyze</button></>}>
-      <p className="hint" style={{ marginTop: 0 }}>AI — still shot from an image (mocked). Composes a shot: places the camera + sets focal/aperture/angle. Writes NO keys.</p>
-      <div className="ref-grid">
-        {AI_IMAGES.map((r, i) => (
-          <div key={i} className={'ref' + (sel === i ? ' sel' : '')} onClick={() => setSel(i)}>
-            <div className="thumb" style={{ background: r.thumb }} /><div className="cap">{r.name}</div>
-          </div>
-        ))}
-      </div>
-      <label className="checkline" style={{ marginTop: 12 }}><FileStub kind="image" /></label>
+        <button className="tbtn primary" onClick={analyze}>{busy ? 'Analyzing…' : 'Analyze'}</button></>}>
+      <p className="hint" style={{ marginTop: 0 }}>Upload a reference photo — the AI estimates the camera angle, focal length and aperture, then composes the shot (writes NO keys).</p>
+      <label className="ai-drop">
+        {img ? <img src={img.url} alt="reference" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 6 }} />
+          : <span style={{ color: 'var(--ink-2)' }}>⬆ Click to upload an image (JPG / PNG)</span>}
+        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => onFile(e.target.files?.[0])} />
+      </label>
     </Shell>
   );
 }
