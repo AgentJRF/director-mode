@@ -91,7 +91,7 @@ function KeyInspector({ ks }: { ks: Keyframe[] }) {
         {single ? <>Key — {CH_LABEL[ks[0].channel]}<span className="st">{ks[0].source}</span></> : <>{ks.length} keys<span className="st">selected</span></>}
       </div>
       {/* Time is edited on the timeline, value in the Transform panel below — this panel is the ease curve. */}
-      <div className="sect-t" style={{ marginTop: 2 }}>Curve (incoming ease){!single && common === null && <span className="st">mixed</span>}</div>
+      <div className="sect-t" style={{ marginTop: 2 }}>Speed curve presets{!single && common === null && <span className="st">mixed</span>}</div>
       <div className="ease-grid">
         {EASE_LIST.map(ez => <div key={ez} className={'ease-opt' + (common === ez ? ' sel' : '')} onClick={() => st.setKeysEase(ids, ez)}>{ez}</div>)}
       </div>
