@@ -12,20 +12,25 @@ const URL = '/asset/studio_packshot.gltf';
 function Content() {
   const { scene } = useGLTF(URL);
   const d = useMemo(() => {
-    const box = new THREE.Box3().setFromObject(scene);
+    // NB: the main canvas mounts this same `scene` via <primitive scale/position>, which MUTATES
+    // scene.scale/position. Clone first, reset the clone to identity, THEN measure — otherwise the
+    // box is computed on an already-scaled object and the re-applied scale sends it off-screen.
+    const obj = scene.clone(true); // clone shares geometry → safe in a 2nd WebGL context
+    obj.position.set(0, 0, 0); obj.scale.set(1, 1, 1); obj.rotation.set(0, 0, 0); obj.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(obj);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
     const s = 2.0 / Math.max(size.y, 1e-6);
     const pos: [number, number, number] = [-center.x * s, 0.5 - box.min.y * s, -center.z * s];
     const footR = clamp(Math.max(size.x, size.z) * s * 0.62, 0.6, 2.4);
-    return { obj: scene.clone(true), s, pos, footR }; // clone → shares geometry, safe in a 2nd canvas
+    return { obj, s, pos, footR };
   }, [scene]);
   return (
     <group>
       <mesh position={[0, 0.25, 0]} scale={[d.footR / 1.15, 1, d.footR / 1.15]}>
         <cylinderGeometry args={[1.15, 1.35, 0.5, 48]} /><meshStandardMaterial color="#1a1e22" roughness={0.6} metalness={0.3} />
       </mesh>
-      <primitive object={d.obj} scale={d.s} position={d.pos} />
+      <group scale={d.s} position={d.pos}><primitive object={d.obj} /></group>
     </group>
   );
 }
