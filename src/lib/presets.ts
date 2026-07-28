@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Camera, Channel, Ease, Vec3 } from '../types';
+import type { Camera, Channel, Ease, Keyframe, Vec3 } from '../types';
 import { evaluate, eulerFromLookAt, keysOf, poseToSpherical, sphericalToPose, clamp, lerp, evalChannel, targetPoint } from './eval';
 import { S, PIVOT, upsertKeyOn } from '../store';
 
@@ -15,6 +15,7 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
   const pivot = cam.target ? new THREE.Vector3(...targetPoint(cam.target)) : PIVOT;
   const sph = poseToSpherical(base.position, pivot);
   const setKey = (ch: Channel, val: Vec3 | number, t: number, ez: Ease) => upsertKeyOn(cam, ch, val, t, 'preset', ez);
+  cam.keyframes = []; // a preset REPLACES the current move (presets don't stack)
 
   switch (kind) {
     case 'dolly': {
@@ -25,14 +26,22 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
     }
     case 'orbit': case 'arc': {
       const sweep = (kind === 'orbit' ? Math.PI : Math.PI / 2) * amp * dir; // orbit = ½ tour, arc = ¼
-      const mid = { ...sph, theta: sph.theta - sweep / 2 };
-      const end = { ...sph, theta: sph.theta - sweep };
-      setKey('position', base.position, t0, 'linear');
-      setKey('position', sphericalToPose(mid, pivot), (t0 + t1) / 2, ease);
-      setKey('position', sphericalToPose(end, pivot), t1, ease);
+      // True circular arc: 3 keys on the circle with tangents = circular Bézier handles per segment
+      // (handle length = R·4/3·tan(segAngle/4), segAngle = |sweep|/2), so the path follows the circle.
+      const R = Math.hypot(base.position[0] - pivot.x, base.position[2] - pivot.z) || 1;
+      const L = R * (4 / 3) * Math.tan(Math.abs(sweep) / 8);
+      const poses: Vec3[] = [base.position, sphericalToPose({ ...sph, theta: sph.theta - sweep / 2 }, pivot), sphericalToPose({ ...sph, theta: sph.theta - sweep }, pivot)];
+      const times = [t0, (t0 + t1) / 2, t1];
+      poses.forEach((pos, i) => {
+        const k = setKey('position', pos, times[i], i ? ease : 'linear') as Keyframe;
+        const radial = new THREE.Vector3(pos[0] - pivot.x, 0, pos[2] - pivot.z).normalize();
+        const tang = new THREE.Vector3(radial.z, 0, -radial.x).multiplyScalar(-Math.sign(sweep) * L); // circle tangent, travel dir
+        if (i < poses.length - 1) k.tangentOut = [tang.x, 0, tang.z];
+        if (i > 0) k.tangentIn = [-tang.x, 0, -tang.z];
+      });
       if (!cam.target) {
         setKey('rotation', eulerFromLookAt(base.position, pivot.toArray() as Vec3), t0, 'linear');
-        setKey('rotation', eulerFromLookAt(sphericalToPose(end, pivot), pivot.toArray() as Vec3), t1, ease);
+        setKey('rotation', eulerFromLookAt(poses[2], pivot.toArray() as Vec3), t1, ease);
       }
       break;
     }
