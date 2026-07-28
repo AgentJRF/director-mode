@@ -5,6 +5,7 @@ import { PerspectiveCamera, OrbitControls } from '@react-three/drei';
 import { EffectComposer, DepthOfField } from '@react-three/postprocessing';
 import CameraController from './CameraController';
 import SceneGizmos from './SceneGizmos';
+import CameraMarkers from './CameraMarkers';
 import FocusPicker from './FocusPicker';
 import TargetPicker from './TargetPicker';
 import PoiControl from './PoiControl';
@@ -88,6 +89,7 @@ export default function Scene() {
         enablePan screenSpacePanning panSpeed={1.1} minDistance={1.5} maxDistance={120} />}
       {mode === 'scene' && !multiview && <EditorFly />}
       {mode === 'scene' && <SceneGizmos renderCamRef={renderCamRef} />}
+      {mode === 'scene' && !multiview && <CameraMarkers />}
       {mode === 'scene' && !multiview && <PoiControl />}
       {quad && <MultiviewRenderer sceneCamRef={sceneCamRef} />}
       {mode === 'camera' && <DoF />}

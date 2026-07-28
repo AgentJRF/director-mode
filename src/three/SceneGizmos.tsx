@@ -17,6 +17,7 @@ const EASE_COLOR: Record<string, string> = { linear: '#8a93a0', easeIn: '#5b9dd9
 export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<THREE.PerspectiveCamera | null> }) {
   const rev = useStore(s => s.rev);
   const multiview = useStore(s => s.ui.multiview);
+  const interp = useStore(s => s.ui.interp);
   const { gl, camera, scene } = useThree();
   const st = S(); const cam = st.active(); const space = st.ui.gizmoSpace;
   const selectTool = st.ui.tool === 'select'; // Select tool acts on keyframes only — camera gizmo is hidden/inert
@@ -123,6 +124,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
     const wrapRect = () => (R3.wrap ?? dom).getBoundingClientRect();
     const down = (e: PointerEvent) => {
       if (!active() || e.button !== 0) return;
+      if (S().ui.interp) return; // picking cameras for A→B interpolation → no marquee
       if (S().ui.gizmoDragging || gizmoDrag.current) return; // a gizmo drag started (axis/plane) → no marquee
       const r = dom.getBoundingClientRect();
       rc.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
@@ -223,8 +225,9 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
     <>
       <primitive object={helper} />
       {/* In multiview the PivotControls gizmo is hidden (it only works with the default camera);
-          the camera body is tagged so useMultiviewInput can drag the camera per-view instead. */}
-      <PivotControls matrix={matrix} autoTransform fixed scale={50} lineWidth={2} depthTest={false}
+          the camera body is tagged so useMultiviewInput can drag the camera per-view instead.
+          During A→B interpolation it's hidden too — CameraMarkers draws all cameras for picking. */}
+      {!interp && <PivotControls matrix={matrix} autoTransform fixed scale={50} lineWidth={2} depthTest={false}
         disableScaling activeAxes={[true, true, true]}
         disableAxes={multiview} disableSliders={multiview} disableRotations={multiview || !!cam.target}
         onDragStart={onDragStart} onDrag={onDrag} onDragEnd={onDragEnd}>
@@ -232,7 +235,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
           <mesh position={[0, 0, 0.08]} userData={{ gizmo: { kind: 'camera' } }}><boxGeometry args={[0.22, 0.16, 0.26]} /><meshStandardMaterial color="#15181b" roughness={0.5} metalness={0.6} /></mesh>
           <mesh position={[0, 0, -0.12]} rotation={[Math.PI / 2, 0, 0]} userData={{ gizmo: { kind: 'camera' } }}><cylinderGeometry args={[0.07, 0.09, 0.14, 20]} /><meshStandardMaterial color="#0c0e10" roughness={0.4} metalness={0.7} /></mesh>
         </group>
-      </PivotControls>
+      </PivotControls>}
       {pts.length >= 2 && (vizColors
         ? <Line points={pts} vertexColors={vizColors} lineWidth={3.5} transparent opacity={1} />
         : segs.map((sg, i) => (

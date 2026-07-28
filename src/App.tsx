@@ -60,6 +60,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
       const st = S();
+      if (e.key === 'Escape' && st.ui.interp) { st.cancelInterp(); return; }
       if (e.key === ' ') { e.preventDefault(); const tl = st.project.timeline; if (tl.playhead >= tl.duration) st.setPlayhead(0); st.setPlaying(!tl.playing); }
       const map: Record<string, Tool> = { v: 'select', c: 'camera', t: 'target', o: 'optics' };
       if (map[e.key]) st.setTool(map[e.key]);

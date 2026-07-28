@@ -23,7 +23,7 @@ export default function Generators() {
         </button>
       ))}
       <div className="gsep" />
-      <button className="gchip" onClick={() => S().setModal('interp')}><span className="ic">⇄</span>Interp A→B</button>
+      <button className="gchip" onClick={() => S().startInterp()}><span className="ic">⇄</span>Interp A→B</button>
       <button className="gchip" onClick={() => S().setModal('ai-image')}><span className="ic">🖼</span>AI image</button>
       <button className="gchip" onClick={() => S().setModal('ai-video')}><span className="ic">🎬</span>AI video</button>
     </div>

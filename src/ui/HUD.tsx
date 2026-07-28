@@ -11,8 +11,18 @@ export default function HUD() {
   const badgeTxt = rec ? 'REC' : hasAnim(cam) ? 'Anim' : 'Shot';
   const g = Math.round; const gg = (a: number, b: number): number => (b ? gg(b, a % b) : a);
   const d = gg(st.project.canvas.width, st.project.canvas.height);
+  const interp = st.ui.interp;
   return (
     <>
+      {interp && (
+        <div style={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 6,
+          background: 'rgba(18,22,26,.94)', border: '1px solid var(--amber-dim)', borderRadius: 8, padding: '6px 10px 6px 12px',
+          display: 'flex', gap: 12, alignItems: 'center', fontSize: 12, boxShadow: '0 6px 24px rgba(0,0,0,.5)' }}>
+          <span style={{ color: 'var(--amber)', fontWeight: 600 }}>Interpolate A → B</span>
+          <span style={{ color: 'var(--ink-2)' }}>{interp.a ? 'Click camera B in the scene' : 'Click camera A in the scene'}</span>
+          <button className="btn-sm" onClick={() => S().cancelInterp()}>Cancel (Esc)</button>
+        </div>
+      )}
       <div className="hud tl"><div className={badgeCls}><span className="led" /><span>{badgeTxt}</span></div></div>
       <div className="hud tr">
         <div className="hud-optics">{g(p.focalLength)}&nbsp;mm · f/{p.aperture.toFixed(1)}</div>

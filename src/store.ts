@@ -44,6 +44,8 @@ interface UI {
   motionBlur: boolean;
   splineViz: 'none' | 'height' | 'speed';
   hidden: Record<string, boolean>;
+  // Viewport A→B interpolation: null = off; { a: null } = picking A; { a: id } = A picked, waiting for B.
+  interp: { a: string | null } | null;
 }
 
 interface StoreState {
@@ -60,6 +62,9 @@ interface StoreState {
   addCamera: () => void;
   removeCamera: (id: string) => void;
   setCameraColor: (id: string, color: string) => void;
+  startInterp: () => void;
+  pickInterp: (id: string) => void;
+  cancelInterp: () => void;
   setPlayhead: (t: number) => void;
   setPlaying: (p: boolean) => void;
   setDuration: (d: number) => void;
@@ -117,7 +122,7 @@ export const useStore = create<StoreState>((set, get) => {
 
   return {
     project, rev: 0,
-    ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, targetSelected: false, multiview: false, motionBlur: false, splineViz: 'none', hidden: {} },
+    ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, targetSelected: false, multiview: false, motionBlur: false, splineViz: 'none', hidden: {}, interp: null },
     bump, active,
     setTool: t => { get().ui.tool = t; bump(); },
     toast: m => { get().ui.toast = m; bump(); setTimeout(() => { if (get().ui.toast === m) { get().ui.toast = ''; bump(); } }, 2600); },
@@ -133,6 +138,35 @@ export const useStore = create<StoreState>((set, get) => {
       bump();
     },
     setCameraColor: (id, color) => { const c = get().project.cameras.find(c => c.id === id); if (c) { c.color = color; bump(); } },
+    startInterp: () => {
+      const p = get().project;
+      if (p.cameras.length < 2) { get().toast('Add a second camera first'); return; }
+      const ui = get().ui; ui.viewMode = 'scene'; ui.multiview = false; ui.tool = 'select'; ui.selectedKeyIds = []; ui.interp = { a: null };
+      get().toast('Interpolate — click camera A'); bump();
+    },
+    pickInterp: id => {
+      const ui = get().ui; if (!ui.interp) return;
+      if (ui.interp.a === null) { ui.interp = { a: id }; get().toast('Now click camera B'); bump(); return; }
+      const idA = ui.interp.a; if (idA === id) { get().toast('Pick a different camera for B'); return; }
+      // Fuse A→B into ONE 2-key camera (brief: no ghost cameras). Reuse A (keep its colour); drop B.
+      const p = get().project; const A = p.cameras.find(c => c.id === idA); const B = p.cameras.find(c => c.id === id);
+      ui.interp = null;
+      if (!A || !B) { bump(); return; }
+      const t1 = p.timeline.duration; const pa = evaluate(A, 0); const pb = evaluate(B, 0);
+      A.keyframes = []; const tgt = A.target ?? B.target ?? null; A.target = tgt;
+      upsertKeyOn(A, 'position', pa.position, 0, 'interpolation', 'linear');
+      upsertKeyOn(A, 'position', pb.position, t1, 'interpolation', 'easeInOut');
+      if (!tgt) {
+        upsertKeyOn(A, 'rotation', pa.rotation, 0, 'interpolation', 'linear');
+        upsertKeyOn(A, 'rotation', pb.rotation, t1, 'interpolation', 'easeInOut');
+      }
+      upsertKeyOn(A, 'focalLength', pa.focalLength, 0, 'interpolation', 'linear');
+      upsertKeyOn(A, 'focalLength', pb.focalLength, t1, 'interpolation', 'easeInOut');
+      A.name = A.name + ' → ' + B.name;
+      p.cameras = p.cameras.filter(c => c.id !== id); p.activeCameraId = A.id;
+      get().setPlayhead(0); get().toast('Interpolated A → B — 1 camera, editable spline'); bump();
+    },
+    cancelInterp: () => { get().ui.interp = null; get().toast('Interpolation cancelled'); bump(); },
     setPlayhead: t => { get().project.timeline.playhead = clamp(t, 0, get().project.timeline.duration); bump(); },
     setPlaying: p => { get().project.timeline.playing = p; bump(); },
     setDuration: d => { const t = get().project.timeline; t.duration = clamp(Math.round(d * 1000) / 1000, 0.1, 120); if (t.playhead > t.duration) t.playhead = t.duration; bump(); },
