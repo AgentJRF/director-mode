@@ -33,12 +33,14 @@ function Lights() {
 }
 function Floor() {
   useStore(s => s.rev); const h = S().ui.hidden;
+  // The grid is an editor reference — hide it in the camera POV (final framing), keep the ground.
+  const showGrid = S().ui.viewMode !== 'camera';
   return (
     <group visible={!h.floor}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow userData={{ focusPickable: true }}>
         <circleGeometry args={[26, 64]} /><meshStandardMaterial color={0x20252b} roughness={0.8} metalness={0.1} />
       </mesh>
-      <gridHelper args={[40, 40, 0x1c2126, 0x141719]} position={[0, 0.001, 0]} />
+      <gridHelper args={[40, 40, 0x1c2126, 0x141719]} position={[0, 0.001, 0]} visible={showGrid} />
     </group>
   );
 }
