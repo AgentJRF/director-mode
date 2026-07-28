@@ -130,10 +130,15 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
       rc.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
       if (rc.intersectObjects(blockMeshes(), false).length) return; // pressing a key or the camera → let its handler run
       const rr = wrapRect(); start = { x: e.clientX - rr.left, y: e.clientY - rr.top };
-      viewMarquee.rect = { x: start.x, y: start.y, w: 0, h: 0 }; S().bump();
+      // Don't show the box yet: wait for a real drag in `move`, and bail if a gizmo drag starts in
+      // the meantime — the down-time guard alone missed it (PivotControls sets gizmoDragging slightly
+      // later), which left a rubber-band box behind the camera while moving it.
     };
     const move = (e: PointerEvent) => {
-      if (!start) return; const rr = wrapRect(); const px = e.clientX - rr.left, py = e.clientY - rr.top;
+      if (!start) return;
+      if (S().ui.gizmoDragging || gizmoDrag.current) { start = null; if (viewMarquee.rect) { viewMarquee.rect = null; S().bump(); } return; }
+      const rr = wrapRect(); const px = e.clientX - rr.left, py = e.clientY - rr.top;
+      if (!viewMarquee.rect && Math.hypot(px - start.x, py - start.y) < 3) return; // below drag threshold → not a marquee yet
       viewMarquee.rect = { x: Math.min(start.x, px), y: Math.min(start.y, py), w: Math.abs(px - start.x), h: Math.abs(py - start.y) }; S().bump();
     };
     const up = () => {
