@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { S, DEFAULT_APERTURE } from '../store';
 import { useRev } from './bits';
 import Outliner from './Outliner';
 import { evaluate, keysOf, EASE_LIST, EASES, round, poiPoint } from '../lib/eval';
+import { applyPreset } from '../lib/presets';
 
-import type { Channel, Ease, Keyframe, Vec3 } from '../types';
+import type { Camera, Channel, Ease, Keyframe, Vec3 } from '../types';
 
 // Clickable keyframe marker: ◆ = key at playhead, dim ◆ = animated elsewhere, ◇ = no keys.
 // Click toggles a key at the playhead for this channel; disabled when the channel is locked.
@@ -81,6 +83,55 @@ function KeyInspector({ ks }: { ks: Keyframe[] }) {
   );
 }
 
+// Movement presets, relative to the camera's target. Gated: you must target an asset first.
+function CameraMoves({ cam }: { cam: Camera }) {
+  const [dur, setDur] = useState(2.5);
+  const [amp, setAmp] = useState(1);
+  const [dir, setDir] = useState<1 | -1>(1);
+  const targeted = cam.target?.type === 'object';
+  const run = (kind: string, d: 1 | -1 = dir) => applyPreset(kind, { duration: dur, amplitude: amp, ease: 'easeInOut', dir: d });
+  const sliderRow = (label: string, v: number, min: number, max: number, step: number, disp: string, on: (n: number) => void) => (
+    <div className="row"><span className="row-lead"><span className="kf-spacer" /><label>{label}</label></span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
+        <input type="range" min={min} max={max} step={step} value={v} onChange={e => on(parseFloat(e.target.value))} />
+        <span className="val" style={{ minWidth: 44, textAlign: 'right' }}>{disp}</span>
+      </div>
+    </div>
+  );
+  return (
+    <div className="sect">
+      <div className="sect-t">Camera moves</div>
+      {!targeted ? (
+        <>
+          <div className="hint">① Cible un asset pour activer les mouvements (orbit, push, crane…).</div>
+          <button className="btn-sm btn-full" style={{ marginTop: 6 }} onClick={() => S().setTool('target')}>◎ Cibler un asset</button>
+        </>
+      ) : (
+        <>
+          {sliderRow('Durée', dur, 0.5, 8, 0.1, dur.toFixed(1) + 's', setDur)}
+          {sliderRow('Amplitude', amp, 0.25, 2, 0.05, amp.toFixed(2) + '×', setAmp)}
+          <div className="row"><span className="row-lead"><span className="kf-spacer" /><label>Sens</label></span>
+            <div className="seg">
+              <button className={dir === 1 ? 'sel' : ''} onClick={() => setDir(1)}>↻</button>
+              <button className={dir === -1 ? 'sel' : ''} onClick={() => setDir(-1)}>↺</button>
+            </div>
+          </div>
+          <div className="chip-row" style={{ marginTop: 8 }}>
+            <button className="btn-sm" onClick={() => run('orbit')}>Orbit</button>
+            <button className="btn-sm" onClick={() => run('arc')}>Arc</button>
+            <button className="btn-sm" onClick={() => run('dolly', 1)}>Push in</button>
+            <button className="btn-sm" onClick={() => run('dolly', -1)}>Push out</button>
+            <button className="btn-sm" onClick={() => run('crane', 1)}>Crane ↑</button>
+            <button className="btn-sm" onClick={() => run('crane', -1)}>Crane ↓</button>
+            <button className="btn-sm" onClick={() => run('rackFocus')}>Rack focus</button>
+            <button className="btn-sm" onClick={() => run('dollyZoom')}>Dolly zoom</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Inspector() {
   useRev();
   const st = S(); const cam = st.active();
@@ -122,6 +173,8 @@ export default function Inspector() {
             title="General focus + default aperture" onClick={() => st.resetFocus()}>↺ Reset</button>
         </div>
       </div>
+
+      <CameraMoves cam={cam} />
 
     </div>
   );
