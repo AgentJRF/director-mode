@@ -1,4 +1,4 @@
-import { Effect } from 'postprocessing';
+import { Effect, EffectAttribute } from 'postprocessing';
 import { useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -22,7 +22,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 
 class MotionBlurEffect extends Effect {
   constructor() {
-    super('CameraMotionBlur', frag, { uniforms: new Map([['uDir', new THREE.Uniform(new THREE.Vector2(0, 0))]]) });
+    // CONVOLUTION → its own pass reading the PREVIOUS effect's output via inputBuffer (so it composes
+    // ON TOP of DepthOfField instead of being merged and discarding the DoF result).
+    super('CameraMotionBlur', frag, { attributes: EffectAttribute.CONVOLUTION, uniforms: new Map([['uDir', new THREE.Uniform(new THREE.Vector2(0, 0))]]) });
   }
 }
 
