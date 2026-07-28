@@ -34,8 +34,8 @@ function clampEstimate(o: Record<string, unknown>): Estimate {
 // show a convincing "AI match" with no API key / login: an upload whose name matches returns this pose
 // (mocked:false, high confidence) instead of the heuristic. Fill entries as references are analysed.
 const GILL_DUFFEL: Estimate = {
-  azimuth_deg: -60, elevation_deg: 18, distance_factor: 2.8, focal_mm: 40, aperture_f: 8, confidence: 0.9,
-  reasoning: 'Cylindrical holdall shot in 3/4 from a slightly high angle: circular end to camera-left, body receding right. Wide ~40mm framing, deep focus (even product lighting, minimal bokeh).',
+  azimuth_deg: -62, elevation_deg: 10, distance_factor: 3.37, focal_mm: 40, aperture_f: 8, confidence: 0.9,
+  reasoning: 'Cylindrical holdall in 3/4 from a near eye-level angle: circular end large to camera-left, body receding right. Wide ~40mm framing, deep focus (even product lighting, minimal bokeh).',
   mocked: false,
 };
 // Matched by SUBSTRING of the uploaded file name (lowercased): e.g. "Gill-60L-duffel.jpg" → GILL_DUFFEL.
