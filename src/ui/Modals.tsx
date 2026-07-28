@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { S, PIVOT } from '../store';
 import { useRev, grad } from './bits';
 import { evaluate, eulerFromLookAt, sphericalToPose, clamp } from '../lib/eval';
@@ -98,19 +98,42 @@ function AIImageModal() {
     setBusy(false);
   };
 
-  const apply = () => {
-    if (!form) return;
-    const r = clamp(form.distance * 2, 1.6, 14); // product is ~2 units tall (Product.tsx normalises height→2)
-    const theta = form.azimuth * Math.PI / 180;
-    const phi = clamp((90 - form.elevation) * Math.PI / 180, 0.12, Math.PI - 0.12);
+  // Apply a framing to the ACTIVE camera (no keys) — used both for the live preview and the final apply.
+  const applyForm = (f: MatchForm) => {
+    const r = clamp(f.distance * 2, 1.6, 14); // product is ~2 units tall (Product.tsx normalises height→2)
+    const theta = f.azimuth * Math.PI / 180;
+    const phi = clamp((90 - f.elevation) * Math.PI / 180, 0.12, Math.PI - 0.12);
     const pos = sphericalToPose({ r, theta, phi }, PIVOT);
     const st = S(); const cam = st.active();
     cam.transform.position = pos;
     cam.transform.rotation = eulerFromLookAt(pos, PIVOT.toArray() as Vec3);
-    cam.optics.focalLength = clamp(form.focal, 14, 200);
-    cam.optics.aperture = clamp(form.aperture, 1.4, 16);
-    st.setModal(null); st.toast('Pose composed from image (no keys)'); st.bump();
+    cam.optics.focalLength = clamp(f.focal, 14, 200);
+    cam.optics.aperture = clamp(f.aperture, 1.4, 16); // aperture drives the bokeh strength (DoF)
+    cam.optics.focusPoint = null; // anchor focus on the product (General) — clears any stale picked point
+    st.bump();
   };
+
+  // Live preview: while reviewing, drive the real camera in Camera POV so the viewport IS the preview.
+  // Non-destructive — the pose before review is saved and restored on Back / Cancel.
+  const saved = useRef<{ pos: Vec3; rot: Vec3; focal: number; ap: number; fp: Vec3 | null; view: 'camera' | 'scene' } | null>(null);
+  useEffect(() => {
+    if (!est || !form) return;
+    if (!saved.current) {
+      const st = S(); const c = st.active();
+      saved.current = { pos: [...c.transform.position] as Vec3, rot: [...c.transform.rotation] as Vec3, focal: c.optics.focalLength, ap: c.optics.aperture, fp: c.optics.focusPoint ? [...c.optics.focusPoint] as Vec3 : null, view: st.ui.viewMode };
+      st.setViewMode('camera');
+    }
+    applyForm(form);
+  }, [est, form]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const restore = () => {
+    const s = saved.current;
+    if (s) { const st = S(); const c = st.active(); c.transform.position = s.pos; c.transform.rotation = s.rot; c.optics.focalLength = s.focal; c.optics.aperture = s.ap; c.optics.focusPoint = s.fp; st.setViewMode(s.view); st.bump(); }
+    saved.current = null;
+  };
+  const back = () => { restore(); setEst(null); setForm(null); };
+  const cancel = () => { restore(); S().setModal(null); };
+  const apply = () => { saved.current = null; S().setModal(null); S().toast('Pose composed from image (no keys)'); };
 
   if (est && form) {
     const num = (label: string, key: keyof MatchForm, step: number, min: number, max: number) => (
@@ -118,32 +141,33 @@ function AIImageModal() {
         <input type="number" step={step} value={form[key]} style={{ width: 80 }}
           onChange={e => setForm({ ...form, [key]: clamp(parseFloat(e.target.value) || 0, min, max) })} /></div>
     );
+    // Side panel (not a scrim) so the viewport stays visible = the live preview of the composed shot.
     return (
-      <Shell title="AI review · Match camera from image"
-        footer={<><button className="tbtn" onClick={() => { setEst(null); setForm(null); }}>← Back</button>
-          <button className="tbtn primary" onClick={apply}>Apply pose</button></>}>
-        <div style={{ display: 'flex', gap: 12 }}>
-          {img && <img src={img.url} alt="reference" style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line-2)' }} />}
-          <div style={{ flex: 1 }}>
-            <div className="row" style={{ marginTop: 0 }}><label>Confidence</label><ConfBar c={est.confidence} /></div>
-            {est.mocked && <span className="badge proto">estimated · no API key</span>}
-            <p className="hint" style={{ marginTop: 6 }}>{est.reasoning}</p>
-          </div>
-        </div>
+      <div className="ai-review-panel">
+        <div className="modal-h" style={{ padding: '0 0 8px' }}>AI · Match camera</div>
+        <p className="hint" style={{ marginTop: 0 }}>Live preview in the viewport (Camera POV) — tweak to match the reference, then apply.</p>
+        {img && <img src={img.url} alt="reference" style={{ width: '100%', maxHeight: 150, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line-2)' }} />}
+        <div className="row" style={{ marginTop: 8 }}><label>Confidence</label><ConfBar c={est.confidence} /></div>
+        {est.mocked && <span className="badge proto">estimated (heuristic)</span>}
+        <p className="hint" style={{ marginTop: 6 }}>{est.reasoning}</p>
         <div className="sect-t" style={{ padding: 0, margin: '12px 0 2px' }}>Estimated framing — adjustable</div>
         {num('Azimuth °', 'azimuth', 1, -180, 180)}
         {num('Elevation °', 'elevation', 1, -25, 85)}
         {num('Distance ×', 'distance', 0.1, 1.2, 7)}
         {num('Focal mm', 'focal', 1, 14, 200)}
         {num('Aperture f/', 'aperture', 0.1, 1.4, 16)}
-        <p className="hint">Composes a shot — writes no keyframes. The timeline is unchanged.</p>
-      </Shell>
+        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+          <button className="tbtn" style={{ flex: 1 }} onClick={back}>← Back</button>
+          <button className="tbtn primary" style={{ flex: 1 }} onClick={apply}>Apply pose</button>
+        </div>
+        <p className="hint" style={{ marginTop: 10 }}>Composes a shot — writes no keyframes. Back restores your previous view.</p>
+      </div>
     );
   }
 
   return (
     <Shell title="AI · Match camera from image"
-      footer={<><button className="tbtn" onClick={() => S().setModal(null)}>Cancel</button>
+      footer={<><button className="tbtn" onClick={cancel}>Cancel</button>
         <button className="tbtn primary" onClick={analyze}>{busy ? 'Analyzing…' : 'Analyze'}</button></>}>
       <p className="hint" style={{ marginTop: 0 }}>Upload a reference photo — the AI estimates the camera angle, focal length and aperture, then composes the shot (writes NO keys).</p>
       <label className="ai-drop">

@@ -35,7 +35,7 @@ Analyze the reference image and estimate the camera pose RELATIVE TO THE PRODUCT
 - elevation_deg: vertical angle. 0 = eye level, positive = high angle looking down, negative = low angle. Range -25..85.
 - distance_factor: camera distance as a multiple of the product height (tight framing ~1.5, wide ~6).
 - focal_mm: estimated 35mm-equivalent focal length (14..200).
-- aperture_f: estimated aperture (1.4 = very shallow depth/strong bokeh, 16 = deep focus).
+- aperture_f: estimated aperture — MATCH the amount of background blur (bokeh) visible in the reference (1.4 = very shallow depth / strong bokeh, 16 = deep focus / everything sharp).
 - confidence: number 0..1, your confidence in the estimate.
 - reasoning: one short sentence.`;
 
