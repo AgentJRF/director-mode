@@ -23,6 +23,7 @@ const cl = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 export default function App() {
   const rev = useStore(s => s.rev);
   const split = useStore(s => s.ui.split);
+  const canvasWH = useStore(s => s.project.canvas);
   const frameRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -109,8 +110,10 @@ export default function App() {
           <>
             <div className="split-divider" style={{ left: `${splitPos * 100}%` }} onPointerDown={dragSplit} title="Drag to resize the split" />
             <div className="split-right" style={{ width: `${(1 - splitPos) * 100}%` }}>
-              <span className="split-tag">Camera</span>
-              <ErrorBoundary label="Camera preview"><CameraPovPreview /></ErrorBoundary>
+              <div className="split-cam" style={{ aspectRatio: `${canvasWH.width} / ${canvasWH.height}` }}>
+                <span className="split-tag">Camera</span>
+                <ErrorBoundary label="Camera preview"><CameraPovPreview /></ErrorBoundary>
+              </div>
             </div>
           </>
         )}
