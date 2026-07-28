@@ -4,7 +4,6 @@ import Topbar from './ui/Topbar';
 import Toolbar from './ui/Toolbar';
 import Inspector from './ui/Inspector';
 import Timeline from './ui/Timeline';
-import Generators from './ui/Generators';
 import HUD from './ui/HUD';
 import ViewPills from './ui/ViewPills';
 import Modals from './ui/Modals';
@@ -64,7 +63,6 @@ export default function App() {
       if (e.key === ' ') { e.preventDefault(); const tl = st.project.timeline; if (tl.playhead >= tl.duration) st.setPlayhead(0); st.setPlaying(!tl.playing); }
       const map: Record<string, Tool> = { v: 'select', c: 'camera', t: 'target', o: 'optics' };
       if (map[e.key]) st.setTool(map[e.key]);
-      if (e.key === 'g') st.setTool(st.ui.tool === 'generators' ? 'select' : 'generators');
       if (e.key === 'r') st.setGizmoSpace(st.ui.gizmoSpace === 'world' ? 'local' : 'world');
       if (e.key === '4' && st.ui.viewMode === 'scene') st.setMultiview(!st.ui.multiview);
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -95,7 +93,6 @@ export default function App() {
         </div>
         <HUD />
         <ViewPills />
-        <Generators />
         <Loading />
       </div>
       <Inspector />

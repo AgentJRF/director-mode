@@ -30,8 +30,6 @@ export default function Toolbar() {
       <div className="tool-sep" />
       <button className={'tool' + (S().ui.interp ? ' active' : '')} title="Interpolate — click camera A then B (A→B)"
         onClick={() => (S().ui.interp ? S().cancelInterp() : S().startInterp())}>⇄</button>
-      <button className={'tool gen' + (tool === 'generators' ? ' active' : '')} title="Generators (G)"
-        onClick={() => S().setTool(tool === 'generators' ? 'select' : 'generators')}>✦</button>
     </div>
   );
 }

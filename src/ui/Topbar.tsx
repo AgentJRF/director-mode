@@ -10,6 +10,8 @@ export default function Topbar() {
       <span className="badge proto">prototype</span>
       <span className="badge">{width}×{height}</span>
       <div className="top-spacer" />
+      <button className="tbtn" title="AI — match camera from an image" onClick={() => S().setModal('ai-image')}>✦ AI image</button>
+      <button className="tbtn" title="AI — animation from a video" onClick={() => S().setModal('ai-video')}>✦ AI video</button>
       <button className="tbtn" onClick={() => S().setModal('color')}>Color / LUT</button>
       <button className="tbtn" onClick={() => S().setModal('export')}>Export</button>
     </div>

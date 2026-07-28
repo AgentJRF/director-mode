@@ -40,7 +40,7 @@ export interface LUT {
   swatch?: string;
 }
 
-export type Tool = 'select' | 'camera' | 'target' | 'optics' | 'generators';
+export type Tool = 'select' | 'camera' | 'target' | 'optics';
 
 export interface Project {
   cameras: Camera[];
