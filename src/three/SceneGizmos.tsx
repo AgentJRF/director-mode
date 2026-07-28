@@ -10,6 +10,9 @@ import type { Vec3 } from '../types';
 
 const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
 const ONE = new THREE.Vector3(1, 1, 1);
+// Per-segment colour by the ease ENTERING the segment's end key — lets each animation curve read
+// distinctly, and shows at a glance which easing each segment carries.
+const EASE_COLOR: Record<string, string> = { linear: '#8a93a0', easeIn: '#5b9dd9', easeOut: '#4fb477', easeInOut: '#f2a33c', easeInOutStrong: '#d9614e' };
 
 export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<THREE.PerspectiveCamera | null> }) {
   const rev = useStore(s => s.rev);
@@ -168,12 +171,17 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
     return a;
   }, [rev]);
 
-  // Motion dots: sampled at EVEN TIME steps → their on-path spacing visualizes speed/easing
-  // (bunched = slow, spread = fast). Editing an ease redistributes them live.
-  const dots = useMemo(() => {
-    if (pk.length < 2) return [] as Vec3[]; const a: Vec3[] = []; const N = 28;
-    for (let i = 0; i <= N; i++) { const t = lerp(pk[0].time, pk[pk.length - 1].time, i / N); a.push(evalChannel(cam, 'position', t) as Vec3); }
-    return a;
+  // Per-segment geometry: a line coloured by the segment's ease + a few even-TIME motion dots whose
+  // on-path spacing reveals the rhythm (bunched = slow, spread = fast). Far fewer dots than before.
+  const segs = useMemo(() => {
+    const out: { line: Vec3[]; dots: Vec3[]; color: string }[] = [];
+    for (let i = 0; i < pk.length - 1; i++) {
+      const t0 = pk[i].time, t1 = pk[i + 1].time;
+      const line: Vec3[] = []; for (let s = 0; s <= 24; s++) line.push(evalChannel(cam, 'position', lerp(t0, t1, s / 24)) as Vec3);
+      const dots: Vec3[] = []; for (let s = 1; s <= 5; s++) dots.push(evalChannel(cam, 'position', lerp(t0, t1, s / 6)) as Vec3);
+      out.push({ line, dots, color: EASE_COLOR[pk[i + 1].ease] || '#f2a33c' });
+    }
+    return out;
   }, [rev]);
 
   // Highlighted sub-path for the currently-selected segment (a single non-first position key → the
@@ -215,7 +223,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
           the camera body is tagged so useMultiviewInput can drag the camera per-view instead. */}
       <PivotControls matrix={matrix} autoTransform fixed scale={50} lineWidth={2} depthTest={false}
         disableScaling activeAxes={[true, true, true]}
-        disableAxes={multiview || selectTool} disableSliders={multiview || selectTool} disableRotations={multiview || selectTool}
+        disableAxes={multiview} disableSliders={multiview} disableRotations={multiview || !!cam.target}
         onDragStart={onDragStart} onDrag={onDrag} onDragEnd={onDragEnd}>
         <group ref={bodyRef}>
           <mesh position={[0, 0, 0.08]} userData={{ gizmo: { kind: 'camera' } }}><boxGeometry args={[0.22, 0.16, 0.26]} /><meshStandardMaterial color="#15181b" roughness={0.5} metalness={0.6} /></mesh>
@@ -224,16 +232,19 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
       </PivotControls>
       {pts.length >= 2 && (vizColors
         ? <Line points={pts} vertexColors={vizColors} lineWidth={3.5} transparent opacity={1} />
-        : <Line points={pts} color="#f2a33c" lineWidth={2} transparent opacity={0.9} />)}
+        : segs.map((sg, i) => (
+          <group key={i}>
+            <Line points={sg.line} color={sg.color} lineWidth={2.5} transparent opacity={0.95} />
+            {sg.dots.map((d, j) => (
+              <mesh key={j} position={d} renderOrder={1}>
+                <sphereGeometry args={[0.028, 8, 8]} />
+                <meshBasicMaterial color={sg.color} depthTest={false} transparent opacity={0.85} />
+              </mesh>
+            ))}
+          </group>
+        )))}
       {/* highlighted selected segment (the one whose curve is being edited) */}
       {selSeg && <Line points={selSeg} color="#ffffff" lineWidth={5} transparent opacity={0.95} />}
-      {/* motion dots (even-time samples) — spacing shows speed/easing */}
-      {dots.map((d, i) => (
-        <mesh key={i} position={d} renderOrder={1}>
-          <sphereGeometry args={[0.032, 8, 8]} />
-          <meshBasicMaterial color="#e6edf5" depthTest={false} transparent opacity={0.9} />
-        </mesh>
-      ))}
       {pk.map((k, i) => {
         const sel = st.ui.selectedKeyIds.includes(k.id);
         const kv = k.value as Vec3;

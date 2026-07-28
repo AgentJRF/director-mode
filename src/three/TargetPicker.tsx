@@ -26,7 +26,7 @@ export default function TargetPicker() {
       while (o) { if (o.userData && o.userData.objectId) { objectId = o.userData.objectId; break; } o = o.parent; }
       if (!objectId) { S().toast('Cliquez un objet'); return; } // objects only — stay in picking mode
       S().setTarget({ type: 'object', objectId }); S().toast('Target: ' + objectId);
-      S().setTool('select'); // one-shot: leave picking mode after a successful pick
+      S().setTool('camera'); // one-shot: return to the Camera tool so the gizmo stays visible (Select hides it)
     };
     dom.style.cursor = 'crosshair';
     dom.addEventListener('pointerdown', down);
