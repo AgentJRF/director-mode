@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Scene from './three/Scene';
 import Topbar from './ui/Topbar';
 import Toolbar from './ui/Toolbar';
@@ -18,10 +18,28 @@ import { applyLutToCanvas } from './lib/lut';
 import { R3 } from './three/shared';
 import type { Tool } from './types';
 
+const cl = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+
 export default function App() {
   const rev = useStore(s => s.rev);
   const frameRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  // Resizable panels — inspector width & timeline height (persisted).
+  const [insW, setInsW] = useState(() => cl(+(localStorage.getItem('dm.insW') || '300'), 220, 560));
+  const [tlH, setTlH] = useState(() => cl(+(localStorage.getItem('dm.tlH') || '224'), 120, 640));
+  useEffect(() => { localStorage.setItem('dm.insW', String(insW)); }, [insW]);
+  useEffect(() => { localStorage.setItem('dm.tlH', String(tlH)); }, [tlH]);
+
+  const dragPanel = (axis: 'v' | 'h') => (e: React.PointerEvent) => {
+    e.preventDefault();
+    const handle = e.currentTarget as HTMLElement; handle.classList.add('drag');
+    const onMove = (ev: PointerEvent) => {
+      if (axis === 'v') setInsW(cl(window.innerWidth - ev.clientX, 220, Math.min(560, window.innerWidth - 220)));
+      else setTlH(cl(window.innerHeight - ev.clientY, 120, Math.min(640, window.innerHeight - 160)));
+    };
+    const onUp = () => { handle.classList.remove('drag'); window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
+    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+  };
 
   useLayoutEffect(() => {
     const fit = () => {
@@ -34,7 +52,7 @@ export default function App() {
     R3.wrap = wrapRef.current; fit();
     window.addEventListener('resize', fit);
     return () => window.removeEventListener('resize', fit);
-  }, [rev]);
+  }, [rev, insW, tlH]);
 
   useEffect(() => { applyLutToCanvas(S().project); }, [rev]);
 
@@ -58,9 +76,11 @@ export default function App() {
   }, []);
 
   return (
-    <div id="app">
+    <div id="app" style={{ gridTemplateColumns: `48px 1fr ${insW}px`, gridTemplateRows: `40px 1fr ${tlH}px` }}>
       <Topbar />
       <Toolbar />
+      <div className="splitter splitter-v" style={{ right: insW }} onPointerDown={dragPanel('v')} title="Drag to resize the inspector" />
+      <div className="splitter splitter-h" style={{ right: insW, bottom: tlH }} onPointerDown={dragPanel('h')} title="Drag to resize the timeline" />
       <div id="stage">
         <div id="viewport-frame" ref={frameRef}>
           <div id="canvas-wrap" ref={wrapRef}>

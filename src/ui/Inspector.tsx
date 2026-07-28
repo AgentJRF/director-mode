@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { S, DEFAULT_APERTURE } from '../store';
 import { useRev } from './bits';
 import Outliner from './Outliner';
-import { evaluate, keysOf, EASE_LIST, EASES, round, poiPoint } from '../lib/eval';
+import { evaluate, keysOf, EASE_LIST, EASES, round, poiPoint, clamp } from '../lib/eval';
 import { applyPreset } from '../lib/presets';
 
 import type { Camera, Channel, Ease, Keyframe, Vec3 } from '../types';
@@ -33,15 +33,33 @@ function Vec3Row({ label, value, step = 0.1, disabled, ch, onChange }:
 
 const CH_LABEL: Record<Channel, string> = { position: 'POS', rotation: 'ROT', focalLength: 'FOCAL', poi: 'POI', aperture: 'APERTURE', motionBlur: 'SHUTTER' };
 
+// Hand-editable numeric box: shows the (rounded) value; while focused it holds free text and commits
+// a clamped value on blur / Enter, so typing isn't fought by the min/max clamp mid-keystroke.
+function NumInput({ value, min, max, step, dec, onChange }:
+  { value: number; min: number; max: number; step: number; dec: number; onChange: (v: number) => void }) {
+  const [txt, setTxt] = useState<string | null>(null);
+  const shown = txt ?? String(round(value, dec));
+  const commit = () => { if (txt !== null) { const v = parseFloat(txt); if (!isNaN(v)) onChange(clamp(v, min, max)); setTxt(null); } };
+  return (
+    <input className="val-input" type="number" min={min} max={max} step={step} value={shown}
+      onChange={e => setTxt(e.target.value)} onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setTxt(null); }} />
+  );
+}
+
 function Slider({ label, value, min, max, step, unit, prefix, onChange, disabled, ch }:
   { label: string; value: number; min: number; max: number; step: number; unit?: string; prefix?: string; onChange: (v: number) => void; disabled?: boolean; ch?: Channel }) {
-  const disp = prefix ? prefix + value.toFixed(1) : round(value, step < 1 ? 1 : 0) + (unit ? ' ' + unit : '');
+  const dec = step < 1 ? 1 : 0;
   return (
     <div className={'row' + (disabled ? ' locked' : '')}>
       <span className="row-lead">{ch ? <KeyDot ch={ch} value={value} disabled={disabled} /> : <span className="kf-spacer" />}<label>{label}</label></span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
-        <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} />
-        <span className="val" style={{ minWidth: 52, textAlign: 'right' }}>{disp}</span>
+        <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} disabled={disabled} />
+        <span className="val-box">
+          {prefix && <span className="val-fix">{prefix}</span>}
+          <NumInput value={value} min={min} max={max} step={step} dec={dec} onChange={onChange} />
+          {unit && <span className="val-fix">{unit}</span>}
+        </span>
       </div>
     </div>
   );
