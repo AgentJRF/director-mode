@@ -14,28 +14,31 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
   // Movement presets pivot around the camera's TARGET (fallback: global pivot).
   const pivot = cam.target ? new THREE.Vector3(...targetPoint(cam.target)) : PIVOT;
   const sph = poseToSpherical(base.position, pivot);
+  sph.theta = 0; // every preset STARTS facing the object (front, +Z), keeping the current distance & height
+  const startPos = sphericalToPose(sph, pivot);
   const setKey = (ch: Channel, val: Vec3 | number, t: number, ez: Ease) => upsertKeyOn(cam, ch, val, t, 'preset', ez);
   cam.keyframes = []; // a preset REPLACES the current move (presets don't stack)
+  cam.transform.position = startPos; // reposition to face the object (also covers presets that don't animate position)
 
   switch (kind) {
     case 'dolly': {
       // dir = +1 push in (toward the target), -1 push out
-      const vdir = new THREE.Vector3(...base.position).sub(pivot).normalize();
-      const p1 = new THREE.Vector3(...base.position).addScaledVector(vdir, -2.4 * amp * dir).toArray() as Vec3;
-      setKey('position', base.position, t0, 'linear'); setKey('position', p1, t1, ease); break;
+      const vdir = new THREE.Vector3(...startPos).sub(pivot).normalize();
+      const p1 = new THREE.Vector3(...startPos).addScaledVector(vdir, -2.4 * amp * dir).toArray() as Vec3;
+      setKey('position', startPos, t0, 'linear'); setKey('position', p1, t1, ease); break;
     }
     case 'orbit': case 'arc': {
       const sweep = (kind === 'orbit' ? 2 * Math.PI : Math.PI / 2) * amp * dir; // orbit = tour complet, arc = ¼
       // True circular arc: split into ≤90° segments (a single Bézier is only accurate up to ~90°),
       // each with circular tangents (handle length = R·4/3·tan(segAngle/4)) so the path is a real circle.
-      const R = Math.hypot(base.position[0] - pivot.x, base.position[2] - pivot.z) || 1;
+      const R = Math.hypot(startPos[0] - pivot.x, startPos[2] - pivot.z) || 1;
       const nSeg = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 2)));
       const segAngle = Math.abs(sweep) / nSeg;
       const L = R * (4 / 3) * Math.tan(segAngle / 4);
-      let lastPos = base.position;
+      let lastPos = startPos;
       for (let i = 0; i <= nSeg; i++) {
         const frac = i / nSeg;
-        const pos = i === 0 ? base.position : sphericalToPose({ ...sph, theta: sph.theta - sweep * frac }, pivot);
+        const pos = i === 0 ? startPos : sphericalToPose({ ...sph, theta: sph.theta - sweep * frac }, pivot);
         const k = setKey('position', pos, lerp(t0, t1, frac), i ? ease : 'linear') as Keyframe;
         const radial = new THREE.Vector3(pos[0] - pivot.x, 0, pos[2] - pivot.z).normalize();
         const tang = new THREE.Vector3(radial.z, 0, -radial.x).multiplyScalar(-Math.sign(sweep) * L); // circle tangent, travel dir
@@ -44,7 +47,7 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
         lastPos = pos;
       }
       if (!cam.target) {
-        setKey('rotation', eulerFromLookAt(base.position, pivot.toArray() as Vec3), t0, 'linear');
+        setKey('rotation', eulerFromLookAt(startPos, pivot.toArray() as Vec3), t0, 'linear');
         setKey('rotation', eulerFromLookAt(lastPos, pivot.toArray() as Vec3), t1, ease);
       }
       break;
@@ -52,10 +55,10 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
     case 'crane': {
       // dir = +1 up, -1 down: change elevation (phi) around the target, keep look-at
       const end = { ...sph, phi: clamp(sph.phi - 0.5 * amp * dir, 0.12, Math.PI - 0.12) };
-      setKey('position', base.position, t0, 'linear');
+      setKey('position', startPos, t0, 'linear');
       setKey('position', sphericalToPose(end, pivot), t1, ease);
       if (!cam.target) {
-        setKey('rotation', eulerFromLookAt(base.position, pivot.toArray() as Vec3), t0, 'linear');
+        setKey('rotation', eulerFromLookAt(startPos, pivot.toArray() as Vec3), t0, 'linear');
         setKey('rotation', eulerFromLookAt(sphericalToPose(end, pivot), pivot.toArray() as Vec3), t1, ease);
       }
       break;
@@ -64,9 +67,9 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
     case 'tilt': { const r0 = base.rotation.slice() as Vec3; const r1 = r0.slice() as Vec3; r1[0] += 20 * amp; setKey('rotation', r0, t0, 'linear'); setKey('rotation', r1, t1, ease); break; }
     case 'rackFocus': { setKey('focalLength', cam.optics.focalLength, t0, 'linear'); setKey('focalLength', clamp(cam.optics.focalLength * 1.9 * amp, 14, 200), t1, ease); break; }
     case 'dollyZoom': {
-      const dir = new THREE.Vector3(...base.position).sub(pivot).normalize();
-      const p1 = new THREE.Vector3(...base.position).addScaledVector(dir, 2.6 * amp).toArray() as Vec3;
-      setKey('position', base.position, t0, 'linear'); setKey('position', p1, t1, ease);
+      const dir = new THREE.Vector3(...startPos).sub(pivot).normalize();
+      const p1 = new THREE.Vector3(...startPos).addScaledVector(dir, 2.6 * amp).toArray() as Vec3;
+      setKey('position', startPos, t0, 'linear'); setKey('position', p1, t1, ease);
       setKey('focalLength', cam.optics.focalLength, t0, 'linear'); setKey('focalLength', clamp(cam.optics.focalLength * 0.5, 14, 200), t1, ease);
       break;
     }
