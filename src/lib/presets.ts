@@ -9,7 +9,7 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
   const st = S(); const cam = st.active();
   const tl = st.project.timeline;
   const t0 = tl.playhead; const dur = opts.duration ?? 2.5; const t1 = Math.min(t0 + dur, tl.duration);
-  const ease = opts.ease ?? 'easeInOut'; const amp = opts.amplitude ?? 1; const dir = opts.dir ?? 1;
+  const ease = opts.ease ?? 'linear'; const amp = opts.amplitude ?? 1; const dir = opts.dir ?? 1;
   const base = evaluate(cam, t0);
   // Movement presets pivot around the camera's TARGET (fallback: global pivot).
   const pivot = cam.target ? new THREE.Vector3(...targetPoint(cam.target)) : PIVOT;
@@ -25,23 +25,27 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
       setKey('position', base.position, t0, 'linear'); setKey('position', p1, t1, ease); break;
     }
     case 'orbit': case 'arc': {
-      const sweep = (kind === 'orbit' ? Math.PI : Math.PI / 2) * amp * dir; // orbit = ½ tour, arc = ¼
-      // True circular arc: 3 keys on the circle with tangents = circular Bézier handles per segment
-      // (handle length = R·4/3·tan(segAngle/4), segAngle = |sweep|/2), so the path follows the circle.
+      const sweep = (kind === 'orbit' ? 2 * Math.PI : Math.PI / 2) * amp * dir; // orbit = tour complet, arc = ¼
+      // True circular arc: split into ≤90° segments (a single Bézier is only accurate up to ~90°),
+      // each with circular tangents (handle length = R·4/3·tan(segAngle/4)) so the path is a real circle.
       const R = Math.hypot(base.position[0] - pivot.x, base.position[2] - pivot.z) || 1;
-      const L = R * (4 / 3) * Math.tan(Math.abs(sweep) / 8);
-      const poses: Vec3[] = [base.position, sphericalToPose({ ...sph, theta: sph.theta - sweep / 2 }, pivot), sphericalToPose({ ...sph, theta: sph.theta - sweep }, pivot)];
-      const times = [t0, (t0 + t1) / 2, t1];
-      poses.forEach((pos, i) => {
-        const k = setKey('position', pos, times[i], i ? ease : 'linear') as Keyframe;
+      const nSeg = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 2)));
+      const segAngle = Math.abs(sweep) / nSeg;
+      const L = R * (4 / 3) * Math.tan(segAngle / 4);
+      let lastPos = base.position;
+      for (let i = 0; i <= nSeg; i++) {
+        const frac = i / nSeg;
+        const pos = i === 0 ? base.position : sphericalToPose({ ...sph, theta: sph.theta - sweep * frac }, pivot);
+        const k = setKey('position', pos, lerp(t0, t1, frac), i ? ease : 'linear') as Keyframe;
         const radial = new THREE.Vector3(pos[0] - pivot.x, 0, pos[2] - pivot.z).normalize();
         const tang = new THREE.Vector3(radial.z, 0, -radial.x).multiplyScalar(-Math.sign(sweep) * L); // circle tangent, travel dir
-        if (i < poses.length - 1) k.tangentOut = [tang.x, 0, tang.z];
+        if (i < nSeg) k.tangentOut = [tang.x, 0, tang.z];
         if (i > 0) k.tangentIn = [-tang.x, 0, -tang.z];
-      });
+        lastPos = pos;
+      }
       if (!cam.target) {
         setKey('rotation', eulerFromLookAt(base.position, pivot.toArray() as Vec3), t0, 'linear');
-        setKey('rotation', eulerFromLookAt(poses[2], pivot.toArray() as Vec3), t1, ease);
+        setKey('rotation', eulerFromLookAt(lastPos, pivot.toArray() as Vec3), t1, ease);
       }
       break;
     }

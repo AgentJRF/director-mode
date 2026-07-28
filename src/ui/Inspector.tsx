@@ -147,7 +147,7 @@ function CameraMoves({ cam }: { cam: Camera }) {
           <div className="move-grid">
             {MOVES.map(m => (
               <button key={m.key} className="move-card" title={m.label}
-                onClick={() => applyPreset(m.preset, { duration: dur, amplitude: amp, ease: 'easeInOut', dir: m.d ?? dir })}>
+                onClick={() => applyPreset(m.preset, { duration: dur, amplitude: amp, ease: 'linear', dir: m.d ?? dir })}>
                 <MoveIcon kind={m.key} />
                 <span>{m.label}</span>
               </button>
