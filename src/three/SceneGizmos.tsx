@@ -117,13 +117,16 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
   useEffect(() => {
     const dom = gl.domElement; const rc = new THREE.Raycaster(); let start: { x: number; y: number } | null = null;
     const active = () => !S().ui.multiview && S().ui.viewMode === 'scene' && S().ui.tool === 'select';
-    const keyMeshes = () => { const o: THREE.Object3D[] = []; scene.traverse(n => { const g = (n.userData as { gizmo?: { kind: string } }).gizmo; if (g && (g.kind === 'key' || g.kind === 'in' || g.kind === 'out')) o.push(n); }); return o; };
+    // Meshes whose press must NOT start a marquee: keyframe/tangent handles AND the camera body
+    // (so grabbing the camera to move it never rubber-bands a box behind it).
+    const blockMeshes = () => { const o: THREE.Object3D[] = []; scene.traverse(n => { const g = (n.userData as { gizmo?: { kind: string } }).gizmo; if (g && (g.kind === 'key' || g.kind === 'in' || g.kind === 'out' || g.kind === 'camera')) o.push(n); }); return o; };
     const wrapRect = () => (R3.wrap ?? dom).getBoundingClientRect();
     const down = (e: PointerEvent) => {
       if (!active() || e.button !== 0) return;
+      if (S().ui.gizmoDragging || gizmoDrag.current) return; // a gizmo drag started (axis/plane) → no marquee
       const r = dom.getBoundingClientRect();
       rc.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
-      if (rc.intersectObjects(keyMeshes(), false).length) return; // pressing a key → let its handler run
+      if (rc.intersectObjects(blockMeshes(), false).length) return; // pressing a key or the camera → let its handler run
       const rr = wrapRect(); start = { x: e.clientX - rr.left, y: e.clientY - rr.top };
       viewMarquee.rect = { x: start.x, y: start.y, w: 0, h: 0 }; S().bump();
     };
@@ -270,7 +273,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
         return (
           <group key={k.id}>
             <mesh position={kv} userData={{ gizmo: { id: k.id, kind: 'key' } }} onPointerDown={multiview ? undefined : grab('key')}>
-              <sphereGeometry args={[0.09, 20, 20]} />
+              <sphereGeometry args={[0.055, 20, 20]} />
               <meshBasicMaterial color={sel ? '#ffffff' : '#f2a33c'} />
             </mesh>
             {handles.map(h => (
@@ -278,7 +281,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
                 <Line points={[kv, h.pos]} color="#29b6f6" lineWidth={1.5} transparent opacity={0.7} />
                 <mesh position={h.pos} userData={{ gizmo: { id: k.id, kind: h.which } }} onPointerDown={multiview ? undefined : grab(h.which)}
                   onDoubleClick={e => { e.stopPropagation(); S().setKeyTangent(k.id, h.which, null); }}>
-                  <sphereGeometry args={[0.06, 16, 16]} />
+                  <sphereGeometry args={[0.038, 16, 16]} />
                   <meshBasicMaterial color="#29b6f6" />
                 </mesh>
               </group>

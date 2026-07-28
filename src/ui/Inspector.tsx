@@ -31,7 +31,6 @@ function Vec3Row({ label, value, step = 0.1, disabled, ch, onChange }:
   );
 }
 
-const CH_LABEL: Record<Channel, string> = { position: 'POS', rotation: 'ROT', focalLength: 'FOCAL', poi: 'POI', aperture: 'APERTURE', motionBlur: 'SHUTTER' };
 
 // Hand-editable numeric box: shows the (rounded) value; while focused it holds free text and commits
 // a clamped value on blur / Enter, so typing isn't fought by the min/max clamp mid-keystroke.
@@ -87,11 +86,8 @@ function KeyInspector({ ks }: { ks: Keyframe[] }) {
   const common = eases.size === 1 ? ks[0].ease : null; // null = mixed
   return (
     <div className="sect" style={{ background: 'var(--panel-2)' }}>
-      <div className="sect-t" style={{ color: 'var(--amber)' }}>
-        {single ? <>Key — {CH_LABEL[ks[0].channel]}<span className="st">{ks[0].source}</span></> : <>{ks.length} keys<span className="st">selected</span></>}
-      </div>
       {/* Time is edited on the timeline, value in the Transform panel below — this panel is the ease curve. */}
-      <div className="sect-t" style={{ marginTop: 2 }}>Speed curve presets{!single && common === null && <span className="st">mixed</span>}</div>
+      <div className="sect-t">Speed curve presets{!single && <span className="st">{ks.length} keys</span>}{!single && common === null && <span className="st">mixed</span>}</div>
       <div className="ease-grid">
         {EASE_LIST.map(ez => <div key={ez} className={'ease-opt' + (common === ez ? ' sel' : '')} onClick={() => st.setKeysEase(ids, ez)}>{ez}</div>)}
       </div>
