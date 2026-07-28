@@ -13,6 +13,8 @@ import { join } from 'node:path'
 interface Estimate {
   azimuth_deg: number; elevation_deg: number; distance_factor: number;
   focal_mm: number; aperture_f: number; confidence: number; reasoning: string; mocked?: boolean;
+  // Optional EXACT pose (demo overrides): applied verbatim instead of the spherical azimuth/elevation.
+  pose?: { position: [number, number, number]; rotation: [number, number, number]; focal: number; aperture: number; focusPoint: [number, number, number] | null };
 }
 const clampNum = (v: unknown, lo: number, hi: number, dflt: number) => {
   const n = typeof v === 'number' ? v : parseFloat(String(v)); return isNaN(n) ? dflt : Math.min(hi, Math.max(lo, n));
@@ -38,8 +40,18 @@ const GILL_DUFFEL: Estimate = {
   reasoning: 'Cylindrical holdall in 3/4 from a near eye-level angle: circular end large to camera-left, body receding right. Wide ~40mm framing, deep focus (even product lighting, minimal bokeh).',
   mocked: false,
 };
+// Macro detail shot (orange zip reference) — high, close top-down on the zip line, exact composed pose.
+const ORANGE_DETAIL: Estimate = {
+  azimuth_deg: -7, elevation_deg: 64, distance_factor: 1.1, focal_mm: 37, aperture_f: 1.4, confidence: 0.85,
+  reasoning: 'Macro detail: high, close top-down on the zip line; shallow depth (f/1.4) → strong bokeh, ~37mm.',
+  mocked: false,
+  pose: { position: [-0.11, 3.27, 0.94], rotation: [-50.45, -8.45, 6.34], focal: 37, aperture: 1.4, focusPoint: [0.12, 1.3, -0.67] },
+};
 // Matched by SUBSTRING of the uploaded file name (lowercased): e.g. "Gill-60L-duffel.jpg" → GILL_DUFFEL.
-const DEMO: Record<string, Estimate> = { gill: GILL_DUFFEL, duffel: GILL_DUFFEL, holdall: GILL_DUFFEL };
+const DEMO: Record<string, Estimate> = {
+  gill: GILL_DUFFEL, duffel: GILL_DUFFEL, holdall: GILL_DUFFEL,
+  orange: ORANGE_DETAIL, zip: ORANGE_DETAIL, detail: ORANGE_DETAIL, macro: ORANGE_DETAIL,
+};
 
 const PROMPT = `You are estimating the CAMERA used to shoot a product photograph, in order to recreate the framing in a 3D studio where a single product sits centered on a turntable.
 Analyze the reference image and estimate the camera pose RELATIVE TO THE PRODUCT. Return ONLY a compact JSON object (no prose, no markdown fences) with keys:

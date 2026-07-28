@@ -20,7 +20,8 @@ function Shell({ title, children, footer }: { title: string; children: React.Rea
 }
 
 // Camera estimate returned by /api/match-camera (Claude vision or heuristic fallback).
-type Estimate = { azimuth_deg: number; elevation_deg: number; distance_factor: number; focal_mm: number; aperture_f: number; confidence: number; reasoning: string; mocked?: boolean };
+type ExactPose = { position: Vec3; rotation: Vec3; focal: number; aperture: number; focusPoint: Vec3 | null };
+type Estimate = { azimuth_deg: number; elevation_deg: number; distance_factor: number; focal_mm: number; aperture_f: number; confidence: number; reasoning: string; mocked?: boolean; pose?: ExactPose };
 type MatchForm = { azimuth: number; elevation: number; distance: number; focal: number; aperture: number };
 
 const AI_VIDEOS = [
@@ -114,19 +115,30 @@ function AIImageModal() {
     st.bump();
   };
 
+  // Apply an EXACT baked pose (demo overrides) verbatim to the active camera — no keys.
+  const applyExact = (p: ExactPose) => {
+    const st = S(); const cam = st.active();
+    cam.transform.position = [...p.position] as Vec3;
+    cam.transform.rotation = [...p.rotation] as Vec3;
+    cam.optics.focalLength = p.focal; cam.optics.aperture = p.aperture; cam.optics.focusPoint = p.focusPoint;
+    st.bump();
+  };
+
   const back = () => { setEst(null); setForm(null); };          // return to upload (real camera untouched)
   const cancel = () => S().setModal(null);
   const apply = () => {                                          // commit the framing to the active camera
-    if (form) { applyForm(form); S().setViewMode('camera'); }
-    S().setModal(null); S().toast('Pose composed from image (no keys)');
+    if (est?.pose) applyExact(est.pose);                        // exact composed pose (demo) wins
+    else if (form) applyForm(form);
+    S().setViewMode('camera'); S().setModal(null); S().toast('Pose composed from image (no keys)');
   };
 
   if (est && form) {
     const aspect = S().project.canvas.width / S().project.canvas.height;
+    // Editing any field switches to manual (spherical) mode → drop the exact baked pose.
     const num = (label: string, key: keyof MatchForm, step: number, min: number, max: number) => (
       <div className="row"><label>{label}</label>
         <input type="number" step={step} value={form[key]} style={{ width: 80 }}
-          onChange={e => setForm({ ...form, [key]: clamp(parseFloat(e.target.value) || 0, min, max) })} /></div>
+          onChange={e => { setForm({ ...form, [key]: clamp(parseFloat(e.target.value) || 0, min, max) }); setEst(p => p ? { ...p, pose: undefined } : p); }} /></div>
     );
     // Floating window with a windowed render preview next to the reference — nothing is applied to the
     // real camera until "Apply pose".
@@ -142,7 +154,7 @@ function AIImageModal() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="sect-t" style={{ padding: 0, margin: '0 0 4px' }}>Preview render</div>
             <div style={{ width: '100%', aspectRatio: String(aspect), borderRadius: 6, overflow: 'hidden', border: '1px solid var(--line-2)' }}>
-              <MatchPreview azimuth={form.azimuth} elevation={form.elevation} distance={form.distance} focal={form.focal} aperture={form.aperture} aspect={aspect} />
+              <MatchPreview azimuth={form.azimuth} elevation={form.elevation} distance={form.distance} focal={form.focal} aperture={form.aperture} aspect={aspect} pose={est.pose} />
             </div>
           </div>
         </div>
