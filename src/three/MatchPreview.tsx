@@ -1,40 +1,12 @@
-import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { Suspense, useMemo } from 'react';
+import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useGLTF } from '@react-three/drei';
 import { PIVOT } from '../store';
 import { clamp } from '../lib/eval';
-
-const URL = '/asset/studio_packshot.gltf';
+import { StudioCanvas } from './previewScene';
 
 // Windowed render of the studio scene from a candidate camera — a faithful-ish thumbnail of the shot
-// (framing from focal length, bokeh from aperture). Read-only: it never touches the app's store.
-function Content() {
-  const { scene } = useGLTF(URL);
-  const d = useMemo(() => {
-    // NB: the main canvas mounts this same `scene` via <primitive scale/position>, which MUTATES
-    // scene.scale/position. Clone first, reset the clone to identity, THEN measure — otherwise the
-    // box is computed on an already-scaled object and the re-applied scale sends it off-screen.
-    const obj = scene.clone(true); // clone shares geometry → safe in a 2nd WebGL context
-    obj.position.set(0, 0, 0); obj.scale.set(1, 1, 1); obj.rotation.set(0, 0, 0); obj.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(obj);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    const s = 2.0 / Math.max(size.y, 1e-6);
-    const pos: [number, number, number] = [-center.x * s, 0.5 - box.min.y * s, -center.z * s];
-    const footR = clamp(Math.max(size.x, size.z) * s * 0.62, 0.6, 2.4);
-    return { obj, s, pos, footR };
-  }, [scene]);
-  return (
-    <group>
-      <mesh position={[0, 0.25, 0]} scale={[d.footR / 1.15, 1, d.footR / 1.15]}>
-        <cylinderGeometry args={[1.15, 1.35, 0.5, 48]} /><meshStandardMaterial color="#1a1e22" roughness={0.6} metalness={0.3} />
-      </mesh>
-      <group scale={d.s} position={d.pos}><primitive object={d.obj} /></group>
-    </group>
-  );
-}
-
+// (framing from focal length). Read-only. No DoF: a 2nd postprocessing EffectComposer in this extra
+// WebGL context renders black; the bokeh (aperture) is applied on the real camera after "Apply pose".
 function Rig({ pos, focal, aspect }: { pos: [number, number, number]; focal: number; aspect: number }) {
   const camera = useThree(s => s.camera) as THREE.PerspectiveCamera;
   useFrame(() => {
@@ -45,9 +17,6 @@ function Rig({ pos, focal, aspect }: { pos: [number, number, number]; focal: num
   return null;
 }
 
-// NB: no DepthOfField here — a 2nd postprocessing EffectComposer in this extra WebGL context renders
-// black. The preview shows framing/focal faithfully; the bokeh (aperture) is applied on the real
-// camera and is visible in the main viewport (Camera POV) after "Apply pose".
 export default function MatchPreview({ azimuth, elevation, distance, focal, aspect }:
   { azimuth: number; elevation: number; distance: number; focal: number; aperture: number; aspect: number }) {
   const r = clamp(distance * 2, 1.6, 14);
@@ -58,19 +27,5 @@ export default function MatchPreview({ azimuth, elevation, distance, focal, aspe
     PIVOT.y + r * Math.cos(phi),
     PIVOT.z + r * Math.sin(phi) * Math.cos(theta),
   ];
-  return (
-    <Canvas dpr={[1, 2]} gl={{ antialias: true }} style={{ width: '100%', height: '100%' }}
-      onCreated={({ scene, gl }) => { scene.background = new THREE.Color(0x1a1e22); scene.fog = new THREE.Fog(0x1a1e22, 22, 48); gl.toneMappingExposure = 1.25; }}>
-      <ambientLight intensity={0.55} color={0xd8dee6} />
-      <hemisphereLight args={[0x6b7480, 0x2a2f35, 1.0]} />
-      <spotLight position={[6, 9, 6]} angle={0.85} penumbra={0.5} intensity={4.6} distance={40} decay={1.2} color={0xfff4e6} />
-      <directionalLight position={[-7, 4, -3]} intensity={0.8} color={0x9fb4cc} />
-      <directionalLight position={[5, 4, 9]} intensity={1.0} color={0xf2f2f6} />
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[26, 64]} /><meshStandardMaterial color={0x20252b} roughness={0.8} metalness={0.1} />
-      </mesh>
-      <Suspense fallback={null}><Content /></Suspense>
-      <Rig pos={pos} focal={focal} aspect={aspect} />
-    </Canvas>
-  );
+  return <StudioCanvas><Rig pos={pos} focal={focal} aspect={aspect} /></StudioCanvas>;
 }

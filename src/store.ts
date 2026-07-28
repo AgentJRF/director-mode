@@ -41,6 +41,7 @@ interface UI {
   focusPicking: boolean;
   targetSelected: boolean;
   multiview: boolean;
+  split: boolean;        // side-by-side Scene | Camera view
   motionBlur: boolean;
   splineViz: 'none' | 'height' | 'speed';
   hidden: Record<string, boolean>;
@@ -102,6 +103,7 @@ interface StoreState {
   setRecording: (b: boolean) => void;
   setViewMode: (m: ViewMode) => void;
   setMultiview: (b: boolean) => void;
+  setSplit: (b: boolean) => void;
   setMotionBlur: (b: boolean) => void;
   setSplineViz: (m: 'none' | 'height' | 'speed') => void;
   setGizmoDragging: (b: boolean) => void;
@@ -122,7 +124,7 @@ export const useStore = create<StoreState>((set, get) => {
 
   return {
     project, rev: 0,
-    ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, targetSelected: false, multiview: false, motionBlur: false, splineViz: 'none', hidden: {}, interp: null },
+    ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, targetSelected: false, multiview: false, split: false, motionBlur: false, splineViz: 'none', hidden: {}, interp: null },
     bump, active,
     setTool: t => { get().ui.tool = t; bump(); },
     toast: m => { get().ui.toast = m; bump(); setTimeout(() => { if (get().ui.toast === m) { get().ui.toast = ''; bump(); } }, 2600); },
@@ -250,7 +252,8 @@ export const useStore = create<StoreState>((set, get) => {
     setPoseAB: (which, p) => { if (which === 'A') get().ui.poseA = p; else get().ui.poseB = p; bump(); },
     setRecording: b => { get().ui.recording = b; bump(); },
     setViewMode: m => { get().ui.viewMode = m; bump(); },
-    setMultiview: b => { get().ui.multiview = b; bump(); },
+    setMultiview: b => { const ui = get().ui; ui.multiview = b; if (b) ui.split = false; bump(); },
+    setSplit: b => { const ui = get().ui; ui.split = b; if (b) { ui.viewMode = 'scene'; ui.multiview = false; } bump(); },
     setMotionBlur: b => { get().ui.motionBlur = b; bump(); },
     setSplineViz: m => { get().ui.splineViz = m; bump(); },
     setGizmoDragging: b => { get().ui.gizmoDragging = b; bump(); },

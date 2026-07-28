@@ -29,6 +29,14 @@ function clampEstimate(o: Record<string, unknown>): Estimate {
   };
 }
 
+// --- Demo overrides (Wizard-of-Oz) ---------------------------------------
+// Poses pre-analysed by hand for specific reference images, keyed by lowercased file name. Lets a demo
+// show a convincing "AI match" with no API key / login: an upload whose name matches returns this pose
+// (mocked:false, high confidence) instead of the heuristic. Fill entries as references are analysed.
+const DEMO: Record<string, Estimate> = {
+  // 'my-reference.jpg': { azimuth_deg: 40, elevation_deg: 15, distance_factor: 2.4, focal_mm: 50, aperture_f: 2.0, confidence: 0.92, reasoning: '…', mocked: false },
+};
+
 const PROMPT = `You are estimating the CAMERA used to shoot a product photograph, in order to recreate the framing in a 3D studio where a single product sits centered on a turntable.
 Analyze the reference image and estimate the camera pose RELATIVE TO THE PRODUCT. Return ONLY a compact JSON object (no prose, no markdown fences) with keys:
 - azimuth_deg: horizontal angle around the product. 0 = straight front, positive = camera to the product's right, negative = left. Range -180..180.
@@ -116,8 +124,9 @@ function aiPlugin(env: Record<string, string>): Plugin {
           const chunks: Buffer[] = [];
           for await (const c of req) chunks.push(c as Buffer);
           const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as Record<string, unknown>;
-          // Priority: explicit API key (portable / other machines) → local Claude Code CLI → heuristic.
-          const est = KEY ? await estimateWithClaude(KEY, MODEL, body) : (await estimateWithCli(body)) ?? heuristic(body);
+          // Priority: demo override (baked pose for a known reference) → API key → local CLI → heuristic.
+          const demo = DEMO[String(body.name || '').toLowerCase()];
+          const est = demo ?? (KEY ? await estimateWithClaude(KEY, MODEL, body) : (await estimateWithCli(body)) ?? heuristic(body));
           send(200, est);
         } catch (e) {
           // Never hard-fail the UI: fall back to a heuristic and report the error alongside it.

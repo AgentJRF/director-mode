@@ -9,6 +9,7 @@ import ViewPills from './ui/ViewPills';
 import Modals from './ui/Modals';
 import { Toast, Loading } from './ui/Toast';
 import ErrorBoundary from './ui/ErrorBoundary';
+import CameraPovPreview from './three/CameraPovPreview';
 import SplineOverlay from './three/SplineOverlay';
 import MultiviewOverlay from './three/MultiviewOverlay';
 import MarqueeOverlay from './three/MarqueeOverlay';
@@ -21,6 +22,7 @@ const cl = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
 export default function App() {
   const rev = useStore(s => s.rev);
+  const split = useStore(s => s.ui.split);
   const frameRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   // Resizable panels — inspector width & timeline height (persisted).
@@ -80,7 +82,7 @@ export default function App() {
       <Toolbar />
       <div className="splitter splitter-v" style={{ right: insW }} onPointerDown={dragPanel('v')} title="Drag to resize the inspector" />
       <div className="splitter splitter-h" style={{ right: insW, bottom: tlH }} onPointerDown={dragPanel('h')} title="Drag to resize the timeline" />
-      <div id="stage">
+      <div id="stage" className={split ? 'split' : ''}>
         <div id="viewport-frame" ref={frameRef}>
           <div id="canvas-wrap" ref={wrapRef}>
             <ErrorBoundary label="Scene 3D">
@@ -91,6 +93,12 @@ export default function App() {
             <MarqueeOverlay />
           </div>
         </div>
+        {split && (
+          <div className="split-right">
+            <span className="split-tag">Camera</span>
+            <ErrorBoundary label="Camera preview"><CameraPovPreview /></ErrorBoundary>
+          </div>
+        )}
         <HUD />
         <ViewPills />
         <Loading />

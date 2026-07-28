@@ -67,7 +67,7 @@ function InterpModal() {
 }
 
 function AIImageModal() {
-  const [img, setImg] = useState<{ data: string; media: string; url: string; w: number; h: number } | null>(null);
+  const [img, setImg] = useState<{ data: string; media: string; url: string; w: number; h: number; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [est, setEst] = useState<Estimate | null>(null);
   const [form, setForm] = useState<MatchForm | null>(null);
@@ -80,7 +80,7 @@ function AIImageModal() {
       const data = url.slice(url.indexOf(',') + 1);
       const media = url.slice(5, url.indexOf(';'));
       const im = new Image();
-      im.onload = () => setImg({ data, media, url, w: im.naturalWidth, h: im.naturalHeight });
+      im.onload = () => setImg({ data, media, url, w: im.naturalWidth, h: im.naturalHeight, name: f.name });
       im.src = url;
     };
     rd.readAsDataURL(f);
@@ -91,7 +91,7 @@ function AIImageModal() {
     setBusy(true);
     try {
       const r = await fetch('/api/match-camera', { method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ imageBase64: img.data, mediaType: img.media, width: img.w, height: img.h }) });
+        body: JSON.stringify({ imageBase64: img.data, mediaType: img.media, width: img.w, height: img.h, name: img.name }) });
       const e = await r.json() as Estimate;
       setEst(e);
       setForm({ azimuth: e.azimuth_deg, elevation: e.elevation_deg, distance: e.distance_factor, focal: e.focal_mm, aperture: e.aperture_f });

@@ -22,8 +22,9 @@ export default function ViewPills() {
   return (
     <div className="hud" style={{ top: 12, left: '50%', transform: 'translateX(-50%)', pointerEvents: 'auto', display: 'flex', gap: 8 }}>
       <div className="seg" style={{ background: 'rgba(0,0,0,.5)' }}>
-        <button className={ui.viewMode === 'camera' ? 'sel' : ''} onClick={() => S().setViewMode('camera')} title="Look through the camera">◉ Camera</button>
-        <button className={ui.viewMode === 'scene' ? 'sel' : ''} onClick={() => S().setViewMode('scene')} title="Free editor view: see the camera + animation spline in the scene">⬚ Scene</button>
+        <button className={ui.viewMode === 'camera' && !ui.split ? 'sel' : ''} onClick={() => { S().setSplit(false); S().setViewMode('camera'); }} title="Look through the camera">◉ Camera</button>
+        <button className={ui.viewMode === 'scene' && !ui.split ? 'sel' : ''} onClick={() => { S().setSplit(false); S().setViewMode('scene'); }} title="Free editor view: see the camera + animation spline in the scene">⬚ Scene</button>
+        <button className={ui.split ? 'sel' : ''} onClick={() => S().setSplit(!ui.split)} title="Split view: Scene editor (left) + live Camera (right)">◫ Split</button>
       </div>
       {ui.viewMode === 'scene' && (
         <div className="seg" style={{ background: 'rgba(0,0,0,.5)' }}>

@@ -47,6 +47,11 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 .splitter-h{left:48px;height:6px;margin-top:-3px;cursor:row-resize}
 
 #viewport-frame{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:22px}
+/* split view: Scene editor (left) | live Camera POV (right) */
+#stage.split #viewport-frame{right:50%}
+.split-right{position:absolute;top:0;right:0;bottom:0;width:50%;background:#000;border-left:1px solid var(--line)}
+.split-right canvas{display:block}
+.split-tag{position:absolute;top:8px;left:10px;z-index:2;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);background:rgba(0,0,0,.5);border:1px solid var(--line-2);border-radius:4px;padding:2px 6px;pointer-events:none}
 #canvas-wrap{position:relative;box-shadow:0 8px 40px rgba(0,0,0,.6);background:#000;overflow:hidden}
 #canvas-wrap canvas{display:block}
 #overlay-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
