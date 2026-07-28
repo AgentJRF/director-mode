@@ -43,7 +43,7 @@ export default function Timeline() {
     { label: 'Orientation', ch: 'rotation', lock: !!c.target },
     { label: 'Focal length', ch: 'focalLength' },
     { label: 'Aperture', ch: 'aperture' },
-    { label: 'Motion blur', ch: 'motionBlur' },
+    // Motion blur is a global On/Off + non-animatable shutter (not a keyframable channel).
   ]);
 
   let yCur = TOP_H + 8;

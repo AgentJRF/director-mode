@@ -104,7 +104,12 @@ export default function Inspector() {
         <div className="sect-t">Optics</div>
         <Slider label="Focal" ch="focalLength" value={p.focalLength} min={14} max={200} step={1} unit="mm" onChange={v => st.setOptic('focalLength', v)} />
         <Slider label="Aperture" ch="aperture" value={p.aperture} min={1.4} max={16} step={0.1} prefix="f/" onChange={v => st.setOptic('aperture', v)} />
-        <Slider label="Motion blur" ch="motionBlur" value={p.motionBlur} min={0} max={360} step={1} unit="°" onChange={v => st.setOptic('motionBlurShutter', v)} />
+        {/* Motion blur is a global On/Off (like AE) with a non-animatable shutter — not a keyframable channel */}
+        <div className="row">
+          <span className="row-lead"><span className="kf-spacer" /><label>Motion blur</label></span>
+          <button className={'btn-sm' + (st.ui.motionBlur ? ' amber' : '')} onClick={() => st.setMotionBlur(!st.ui.motionBlur)}>{st.ui.motionBlur ? 'On' : 'Off'}</button>
+        </div>
+        {st.ui.motionBlur && <Slider label="Shutter" value={cam.optics.motionBlurShutter} min={0} max={360} step={1} unit="°" onChange={v => st.setOptic('motionBlurShutter', v)} />}
         <div className="row">
           <span className="row-lead"><span className="kf-spacer" /><label>Focus</label></span>
           <span className="val">{cam.optics.focusPoint ? 'Picked' : 'General'}</span>

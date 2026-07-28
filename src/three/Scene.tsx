@@ -9,6 +9,7 @@ import FocusPicker from './FocusPicker';
 import TargetPicker from './TargetPicker';
 import PoiControl from './PoiControl';
 import EditorFly from './EditorFly';
+import CameraMotionBlur from './CameraMotionBlur';
 import Product from './Product';
 import MultiviewRenderer from './multiview/MultiviewRenderer';
 import { useStore, PIVOT, S } from '../store';
@@ -54,6 +55,7 @@ function DoF() {
   return (
     <EffectComposer>
       <DepthOfField target={target} worldFocusRange={range} bokehScale={bokeh} height={720} />
+      <CameraMotionBlur />
     </EffectComposer>
   );
 }
