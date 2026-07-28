@@ -1,5 +1,8 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { spawn } from 'node:child_process'
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 
 // ---- AI camera-match proxy (dev server) -----------------------------------
 // POST /api/match-camera { imageBase64, mediaType, width, height }
@@ -57,12 +60,46 @@ async function estimateWithClaude(key: string, model: string, body: Record<strin
   return { ...clampEstimate(parsed), mocked: false };
 }
 
+// Local, key-free path: drive the already-authenticated Claude Code CLI in headless mode. Writes the
+// image to a temp file inside the project, asks `claude -p` to Read + analyse it, parses the JSON.
+// Returns null on any failure so the caller falls back to the heuristic.
+async function estimateWithCli(body: Record<string, unknown>): Promise<Estimate | null> {
+  const b64 = typeof body.imageBase64 === 'string' ? body.imageBase64 : '';
+  if (!b64) return null;
+  const dir = join(process.cwd(), '.ai-tmp');
+  const ext = String(body.mediaType || 'image/png').split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+  const file = join(dir, `ref-${Date.now()}.${ext}`);
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(file, Buffer.from(b64, 'base64'));
+    const bin = process.env.CLAUDE_BIN || 'claude';
+    const prompt = `Read the image file at this absolute path: ${file}\n\n${PROMPT}`;
+    const out = await new Promise<string>((resolve, reject) => {
+      const child = spawn(bin, ['-p', '--output-format', 'text', '--allowedTools', 'Read'], { shell: process.platform === 'win32' });
+      let so = '', se = '';
+      const timer = setTimeout(() => { child.kill(); reject(new Error('claude CLI timeout')); }, 90_000);
+      child.stdout.on('data', d => (so += d));
+      child.stderr.on('data', d => (se += d));
+      child.on('error', reject);
+      child.on('close', code => { clearTimeout(timer); code === 0 ? resolve(so) : reject(new Error('claude CLI exit ' + code + ' ' + se.slice(0, 200))); });
+      child.stdin.write(prompt); child.stdin.end();
+    });
+    const parsed = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1)) as Record<string, unknown>;
+    return { ...clampEstimate(parsed), mocked: false };
+  } catch (e) {
+    console.warn('[ai-match] local Claude CLI unavailable:', (e as Error)?.message);
+    return null;
+  } finally {
+    try { rmSync(file, { force: true }); } catch { /* best-effort cleanup */ }
+  }
+}
+
 function heuristic(body: Record<string, unknown>): Estimate {
   const w = Number(body.width) || 1, h = Number(body.height) || 1; const ar = w / h;
   const focal = ar < 0.85 ? 85 : ar > 1.5 ? 28 : 50; // portrait → longer lens, wide → shorter
   return {
     ...clampEstimate({ azimuth_deg: 32, elevation_deg: 12, distance_factor: 2.6, focal_mm: focal, aperture_f: 2.8, confidence: 0.4 }),
-    reasoning: 'Heuristic estimate (set ANTHROPIC_API_KEY for a real Claude vision analysis).', mocked: true,
+    reasoning: 'Heuristic estimate — log in to the local Claude CLI (`claude` → /login), or set ANTHROPIC_API_KEY, for a real analysis.', mocked: true,
   };
 }
 
@@ -79,7 +116,8 @@ function aiPlugin(env: Record<string, string>): Plugin {
           const chunks: Buffer[] = [];
           for await (const c of req) chunks.push(c as Buffer);
           const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as Record<string, unknown>;
-          const est = KEY ? await estimateWithClaude(KEY, MODEL, body) : heuristic(body);
+          // Priority: explicit API key (portable / other machines) → local Claude Code CLI → heuristic.
+          const est = KEY ? await estimateWithClaude(KEY, MODEL, body) : (await estimateWithCli(body)) ?? heuristic(body);
           send(200, est);
         } catch (e) {
           // Never hard-fail the UI: fall back to a heuristic and report the error alongside it.

@@ -30,13 +30,17 @@ npm run dev        # http://127.0.0.1:5173
 Build de production : `npm run build` puis `npm run preview`.
 
 ### IA — match caméra depuis une image (optionnel)
-« AI image » (barre Générateurs) : on **upload une photo** et l'IA estime l'angle, la focale et
-l'ouverture pour composer le plan (sans poser de clés). L'appel passe par un **proxy local** du
-serveur Vite (`POST /api/match-camera`, voir `vite.config.ts`) qui garde la clé côté serveur.
-Copie `.env.example` en `.env` et renseigne `ANTHROPIC_API_KEY` pour la vraie estimation Claude
-vision. **Sans clé**, l'app retombe sur une estimation **heuristique locale** (badge « estimated »)
-— le flux marche quand même. Toute modif de `vite.config.ts`/`.env` nécessite un **redémarrage** du
-serveur dev.
+« ✦ AI image » (Topbar) : on **upload une photo** et l'IA estime l'angle, la focale et l'ouverture
+pour composer le plan (sans poser de clés). L'appel passe par un **proxy local** du serveur Vite
+(`POST /api/match-camera`, voir `vite.config.ts`), qui essaie dans l'ordre :
+
+1. **`ANTHROPIC_API_KEY`** (dans `.env`) → API Claude vision. Pour une machine **sans** Claude Code
+   (déploiement, autre poste). Clé gardée côté serveur, jamais exposée au client.
+2. sinon **CLI Claude Code local** (`claude -p`) → réutilise ta session déjà connectée, **zéro clé**.
+   Nécessite d'être **logué** au CLI (`claude` puis `/login`) sur la machine qui lance le serveur dev.
+3. sinon **heuristique locale** (badge « estimated ») → le flux marche quand même.
+
+Toute modif de `vite.config.ts`/`.env` nécessite un **redémarrage** du serveur dev.
 
 > Windows : si `node` n'est pas dans le PATH du terminal, ouvre un nouveau terminal après
 > l'install de Node, ou ajoute `C:\Program Files\nodejs` au PATH.

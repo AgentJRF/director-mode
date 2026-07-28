@@ -17,6 +17,9 @@ dist-ssr
 .env.*
 !.env.example
 
+# Images temporaires envoyées au CLI Claude Code (proxy IA)
+.ai-tmp/
+
 # Asset produit © Adobe Inc. — hors dépôt, récupéré via scripts/fetch-asset.ps1
 /public/asset/
 
