@@ -83,13 +83,30 @@ function KeyInspector({ ks }: { ks: Keyframe[] }) {
   );
 }
 
+// A small diagram illustrating each camera move. The filled dot is the target; arrows/paths show
+// how the camera moves relative to it.
+function MoveIcon({ kind }: { kind: string }) {
+  const P = { viewBox: '0 0 28 28', width: 26, height: 26, fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  const dot = (x: number, y: number) => <circle cx={x} cy={y} r={1.8} fill="currentColor" stroke="none" />;
+  switch (kind) {
+    case 'orbit': return <svg {...P}>{dot(14, 14)}<circle cx={14} cy={14} r={8} /><path d="M14 6 l2.6 1.3 -1.6 2.5" /></svg>;
+    case 'arc': return <svg {...P}>{dot(14, 19)}<path d="M6 19 A8 8 0 0 1 22 19" /><path d="M22 19 l-0.4 -2.9 -2.6 1.3" /></svg>;
+    case 'pushIn': return <svg {...P}>{dot(22, 14)}<rect x={4} y={11} width={5} height={6} rx={1} /><line x1={10} y1={14} x2={18} y2={14} /><path d="M18 14 l-3 -2.2 M18 14 l-3 2.2" /></svg>;
+    case 'pushOut': return <svg {...P}>{dot(22, 14)}<rect x={12} y={11} width={5} height={6} rx={1} /><line x1={11} y1={14} x2={4} y2={14} /><path d="M4 14 l3 -2.2 M4 14 l3 2.2" /></svg>;
+    case 'craneUp': return <svg {...P}>{dot(14, 22)}<line x1={14} y1={21} x2={14} y2={7} /><path d="M14 7 l-2.4 3 M14 7 l2.4 3" /></svg>;
+    case 'craneDown': return <svg {...P}>{dot(14, 6)}<line x1={14} y1={7} x2={14} y2={21} /><path d="M14 21 l-2.4 -3 M14 21 l2.4 -3" /></svg>;
+    case 'rackFocus': return <svg {...P}>{dot(14, 14)}<circle cx={14} cy={14} r={6.5} /><path d="M14 3.5 v3 M14 21.5 v3 M3.5 14 h3 M21.5 14 h3" /></svg>;
+    case 'dollyZoom': return <svg {...P}>{dot(14, 15)}<path d="M4 22 L10 8 L18 8 L24 22" /><path d="M14 22 v-4 M12 20 l2 2 2 -2" /></svg>;
+    default: return null;
+  }
+}
+
 // Movement presets, relative to the camera's target. Gated: you must target an asset first.
 function CameraMoves({ cam }: { cam: Camera }) {
   const [dur, setDur] = useState(2.5);
   const [amp, setAmp] = useState(1);
   const [dir, setDir] = useState<1 | -1>(1);
   const targeted = cam.target?.type === 'object';
-  const run = (kind: string, d: 1 | -1 = dir) => applyPreset(kind, { duration: dur, amplitude: amp, ease: 'easeInOut', dir: d });
   const sliderRow = (label: string, v: number, min: number, max: number, step: number, disp: string, on: (n: number) => void) => (
     <div className="row"><span className="row-lead"><span className="kf-spacer" /><label>{label}</label></span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
@@ -98,33 +115,43 @@ function CameraMoves({ cam }: { cam: Camera }) {
       </div>
     </div>
   );
+  // preset → the applyPreset kind + fixed direction (Orbit/Arc use the Direction toggle)
+  const MOVES: { key: string; label: string; preset: string; d?: 1 | -1 }[] = [
+    { key: 'orbit', label: 'Orbit', preset: 'orbit' },
+    { key: 'arc', label: 'Arc', preset: 'arc' },
+    { key: 'pushIn', label: 'Push in', preset: 'dolly', d: 1 },
+    { key: 'pushOut', label: 'Push out', preset: 'dolly', d: -1 },
+    { key: 'craneUp', label: 'Crane up', preset: 'crane', d: 1 },
+    { key: 'craneDown', label: 'Crane down', preset: 'crane', d: -1 },
+    { key: 'rackFocus', label: 'Rack focus', preset: 'rackFocus' },
+    { key: 'dollyZoom', label: 'Dolly zoom', preset: 'dollyZoom' },
+  ];
   return (
     <div className="sect">
       <div className="sect-t">Camera moves</div>
       {!targeted ? (
         <>
-          <div className="hint">① Cible un asset pour activer les mouvements (orbit, push, crane…).</div>
-          <button className="btn-sm btn-full" style={{ marginTop: 6 }} onClick={() => S().setTool('target')}>◎ Cibler un asset</button>
+          <div className="hint">① Target an asset to enable moves (orbit, push, crane…).</div>
+          <button className="btn-sm btn-full" style={{ marginTop: 6 }} onClick={() => S().setTool('target')}>◎ Target an asset</button>
         </>
       ) : (
         <>
-          {sliderRow('Durée', dur, 0.5, 8, 0.1, dur.toFixed(1) + 's', setDur)}
-          {sliderRow('Amplitude', amp, 0.25, 2, 0.05, amp.toFixed(2) + '×', setAmp)}
-          <div className="row"><span className="row-lead"><span className="kf-spacer" /><label>Sens</label></span>
+          {sliderRow('Duration', dur, 0.5, 8, 0.1, dur.toFixed(1) + 's', setDur)}
+          {sliderRow('Amount', amp, 0.25, 2, 0.05, amp.toFixed(2) + '×', setAmp)}
+          <div className="row"><span className="row-lead"><span className="kf-spacer" /><label>Direction</label></span>
             <div className="seg">
-              <button className={dir === 1 ? 'sel' : ''} onClick={() => setDir(1)}>↻</button>
-              <button className={dir === -1 ? 'sel' : ''} onClick={() => setDir(-1)}>↺</button>
+              <button className={dir === 1 ? 'sel' : ''} title="Clockwise" onClick={() => setDir(1)}>↻</button>
+              <button className={dir === -1 ? 'sel' : ''} title="Counter-clockwise" onClick={() => setDir(-1)}>↺</button>
             </div>
           </div>
-          <div className="chip-row" style={{ marginTop: 8 }}>
-            <button className="btn-sm" onClick={() => run('orbit')}>Orbit</button>
-            <button className="btn-sm" onClick={() => run('arc')}>Arc</button>
-            <button className="btn-sm" onClick={() => run('dolly', 1)}>Push in</button>
-            <button className="btn-sm" onClick={() => run('dolly', -1)}>Push out</button>
-            <button className="btn-sm" onClick={() => run('crane', 1)}>Crane ↑</button>
-            <button className="btn-sm" onClick={() => run('crane', -1)}>Crane ↓</button>
-            <button className="btn-sm" onClick={() => run('rackFocus')}>Rack focus</button>
-            <button className="btn-sm" onClick={() => run('dollyZoom')}>Dolly zoom</button>
+          <div className="move-grid">
+            {MOVES.map(m => (
+              <button key={m.key} className="move-card" title={m.label}
+                onClick={() => applyPreset(m.preset, { duration: dur, amplitude: amp, ease: 'easeInOut', dir: m.d ?? dir })}>
+                <MoveIcon kind={m.key} />
+                <span>{m.label}</span>
+              </button>
+            ))}
           </div>
         </>
       )}
