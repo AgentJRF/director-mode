@@ -26,6 +26,7 @@ export interface Target {
 export interface Camera {
   id: string;
   name: string;
+  color: string;                // track / gizmo colour (hex)
   transform: { position: Vec3; rotation: Vec3 };
   optics: { focalLength: number; aperture: number; motionBlurShutter: number; focusPoint?: Vec3 | null };
   target: Target | null;

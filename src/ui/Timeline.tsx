@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState } from 'react';
-import { S } from '../store';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { S, CAM_COLORS } from '../store';
 import { useRev } from './bits';
 import { clamp, evaluate, keysOf, poiPoint } from '../lib/eval';
 import { toTimecode, snapToFrame, niceFrameStep } from '../lib/time';
@@ -19,7 +19,17 @@ export default function Timeline() {
   const [durUnit, setDurUnit] = useState<'s' | 'f'>('s');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const [colorMenu, setColorMenu] = useState<{ camId: string; x: number; y: number } | null>(null);
   const drag = useRef<{ mode: 'scrub' | 'key' | 'marquee'; keyId?: string; x0?: number; y0?: number; moved?: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!colorMenu) return;
+    const close = () => setColorMenu(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setColorMenu(null); };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', onKey); };
+  }, [colorMenu]);
 
   useLayoutEffect(() => {
     const el = scrollRef.current!; const ro = new ResizeObserver(() => setViewW(el.clientWidth));
@@ -73,6 +83,8 @@ export default function Timeline() {
   const svgPt = (e: React.PointerEvent) => { const r = (e.currentTarget as SVGElement).getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   const onDown = (e: React.PointerEvent) => {
     const el = e.target as SVGElement;
+    const colorId = el.getAttribute('data-color');
+    if (colorId) { setColorMenu({ camId: colorId, x: e.clientX, y: e.clientY }); return; }
     const toggle = el.getAttribute('data-toggle');
     if (toggle) { setExpanded(x0 => ({ ...x0, [toggle]: !x0[toggle] })); return; }
     const keyId = el.getAttribute('data-key'); const camId = el.getAttribute('data-cam');
@@ -158,18 +170,21 @@ export default function Timeline() {
             return (
               <g key={c.id}>
                 <rect data-cam={c.id} x={LEFT} y={headerY} width={barW} height={TRACK_H} rx={9}
-                  fill={active ? '#a64ce0' : '#4a3a5c'} style={{ cursor: 'pointer' }} />
+                  fill={c.color} fillOpacity={active ? 1 : 0.42} style={{ cursor: 'pointer' }} />
                 {/* collapsed: one small rectangle per keyframe time (merged) to locate the keys */}
                 {!exp && [...new Set(ks.map(k => Math.round(k.time * 1000)))].map(ms => {
                   const kx = x(ms / 1000);
                   return <rect key={ms} x={kx - 3} y={headerY + 9} width={6} height={TRACK_H - 18} rx={2}
                     fill="#f5c400" stroke="#8a6d00" strokeWidth={1} pointerEvents="none" />;
                 })}
-                <text x={LEFT + 12} y={cy + 4} fill={active ? '#f4ebfb' : '#c3b3d1'} fontSize={11} pointerEvents="none">{exp ? '▾' : '▸'}</text>
-                <text x={LEFT + 28} y={cy + 4} fill={active ? '#f4ebfb' : '#c3b3d1'} fontSize={12} pointerEvents="none">{c.name}</text>
+                <text x={LEFT + 12} y={cy + 4} fill={active ? '#ffffff' : '#e6e6ea'} fillOpacity={active ? 1 : 0.75} fontSize={11} pointerEvents="none">{exp ? '▾' : '▸'}</text>
+                {/* colour swatch — click to recolour this camera's track */}
+                <circle cx={LEFT + 34} cy={cy} r={6} fill={c.color} stroke="#0006" strokeWidth={1} pointerEvents="none" />
+                <text x={LEFT + 48} y={cy + 4} fill={active ? '#ffffff' : '#e6e6ea'} fillOpacity={active ? 1 : 0.8} fontSize={12} pointerEvents="none">{c.name}</text>
                 <rect data-toggle={c.id} x={LEFT} y={headerY} width={24} height={TRACK_H} fill="none" pointerEvents="all" style={{ cursor: 'pointer' }} />
+                <rect data-color={c.id} x={LEFT + 25} y={headerY} width={18} height={TRACK_H} fill="none" pointerEvents="all" style={{ cursor: 'pointer' }} />
 
-                {exp && rows.length > 0 && <rect x={LEFT} y={rows[0].ry - 2} width={barW} height={rows.length * ROW_H + 4} rx={6} fill="rgba(166,76,224,0.10)" />}
+                {exp && rows.length > 0 && <rect x={LEFT} y={rows[0].ry - 2} width={barW} height={rows.length * ROW_H + 4} rx={6} fill={c.color} fillOpacity={0.10} />}
                 {rows.map(({ def, ry }) => {
                   const rcy = ry + ROW_H / 2;
                   const grey = !!def.lock;
@@ -207,6 +222,24 @@ export default function Timeline() {
         <span className="mtn" style={{ fontSize: 13 }}>▂▄█</span>
         <button className="btn-sm tl-fit" title="Fit to view" onClick={() => setZoom(1)}>Fit</button>
       </div>
+
+      {colorMenu && (
+        <div style={{
+          position: 'fixed', left: colorMenu.x, top: colorMenu.y, zIndex: 100,
+          background: 'var(--panel-2)', border: '1px solid var(--line-2)', borderRadius: 8,
+          boxShadow: '0 8px 30px rgba(0,0,0,.5)', padding: 8,
+        }} onPointerDown={e => e.stopPropagation()}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 20px)', gap: 6 }}>
+            {CAM_COLORS.map(col => {
+              const sel = proj.cameras.find(c => c.id === colorMenu.camId)?.color === col;
+              return <button key={col} title={col}
+                onClick={() => { S().setCameraColor(colorMenu.camId, col); setColorMenu(null); }}
+                style={{ width: 20, height: 20, borderRadius: '50%', background: col, cursor: 'pointer', padding: 0,
+                  border: sel ? '2px solid #fff' : '1px solid #0006', boxShadow: sel ? '0 0 0 1px #0008' : 'none' }} />;
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

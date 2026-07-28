@@ -11,9 +11,12 @@ export const PIVOT = new THREE.Vector3(0, 0.9, 0);
 // Default optics (used at camera creation and by "Reset focus").
 export const DEFAULT_APERTURE = 8.0;
 
-function makeCamera(name: string, pos: Vec3 = [4, 2.2, 5]): Camera {
+// Distinct, cycling palette for camera tracks/gizmos (first one = the legacy purple).
+export const CAM_COLORS = ['#a64ce0', '#4c9ee0', '#4fb477', '#f2a33c', '#e0574c', '#e04c9e', '#4cd6d6', '#b0b64c'];
+
+function makeCamera(name: string, pos: Vec3 = [4, 2.2, 5], color: string = CAM_COLORS[0]): Camera {
   return {
-    id: uid(), name,
+    id: uid(), name, color,
     transform: { position: pos, rotation: eulerFromLookAt(pos, [0, 0.9, 0]) },
     optics: { focalLength: 35, aperture: DEFAULT_APERTURE, motionBlurShutter: 180, focusPoint: null },
     target: null, keyframes: [],
@@ -55,6 +58,8 @@ interface StoreState {
   toast: (m: string) => void;
   selectCamera: (id: string) => void;
   addCamera: () => void;
+  removeCamera: (id: string) => void;
+  setCameraColor: (id: string, color: string) => void;
   setPlayhead: (t: number) => void;
   setPlaying: (p: boolean) => void;
   setDuration: (d: number) => void;
@@ -117,7 +122,17 @@ export const useStore = create<StoreState>((set, get) => {
     setTool: t => { get().ui.tool = t; bump(); },
     toast: m => { get().ui.toast = m; bump(); setTimeout(() => { if (get().ui.toast === m) { get().ui.toast = ''; bump(); } }, 2600); },
     selectCamera: id => { get().project.activeCameraId = id; get().ui.selectedKeyIds = []; get().ui.targetSelected = false; bump(); },
-    addCamera: () => { const p = get().project; const c = makeCamera('Camera ' + String(p.cameras.length + 1).padStart(2, '0')); p.cameras.push(c); p.activeCameraId = c.id; bump(); },
+    addCamera: () => { const p = get().project; const c = makeCamera('Camera ' + String(p.cameras.length + 1).padStart(2, '0'), undefined, CAM_COLORS[p.cameras.length % CAM_COLORS.length]); p.cameras.push(c); p.activeCameraId = c.id; bump(); },
+    removeCamera: id => {
+      const p = get().project;
+      if (p.cameras.length <= 1) { get().toast('At least one camera is required'); return; } // keep ≥1 camera
+      const idx = p.cameras.findIndex(c => c.id === id); if (idx < 0) return;
+      p.cameras.splice(idx, 1);
+      if (p.activeCameraId === id) p.activeCameraId = p.cameras[Math.min(idx, p.cameras.length - 1)].id;
+      const ui = get().ui; ui.selectedKeyIds = []; ui.targetSelected = false; delete ui.hidden['cam:' + id];
+      bump();
+    },
+    setCameraColor: (id, color) => { const c = get().project.cameras.find(c => c.id === id); if (c) { c.color = color; bump(); } },
     setPlayhead: t => { get().project.timeline.playhead = clamp(t, 0, get().project.timeline.duration); bump(); },
     setPlaying: p => { get().project.timeline.playing = p; bump(); },
     setDuration: d => { const t = get().project.timeline; t.duration = clamp(Math.round(d * 1000) / 1000, 0.1, 120); if (t.playhead > t.duration) t.playhead = t.duration; bump(); },

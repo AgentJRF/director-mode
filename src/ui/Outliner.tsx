@@ -24,6 +24,11 @@ const TargetIcon = () => (
     <path d="M9 1.4 V4 M9 14 V16.6 M1.4 9 H4 M14 9 H16.6" />
   </svg>
 );
+const TrashIcon = () => (
+  <svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3.5 5 H14.5 M7 5 V3.6 H11 V5 M4.6 5 L5.3 14.4 H12.7 L13.4 5" /><path d="M7.6 7.6 V12 M10.4 7.6 V12" />
+  </svg>
+);
 const EyeIcon = ({ off }: { off: boolean }) => (
   <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.4">
     <path d="M1.6 9 C3.7 5.2, 14.3 5.2, 16.4 9 C14.3 12.8, 3.7 12.8, 1.6 9 Z" />
@@ -97,6 +102,10 @@ export default function Outliner() {
               {active && <span className={'ol-dot' + (st.ui.viewMode === 'scene' ? ' scene' : '')}
                 title={st.ui.viewMode === 'camera' ? 'Camera POV — click for Scene view' : 'Scene view — click for Camera POV'}
                 onClick={e => { e.stopPropagation(); st.setViewMode(st.ui.viewMode === 'camera' ? 'scene' : 'camera'); }} />}
+              {proj.cameras.length > 1 && (
+                <span className="ol-eye" title="Delete camera"
+                  onClick={e => { e.stopPropagation(); st.removeCamera(c.id); }}><TrashIcon /></span>
+              )}
               <Eye id={'cam:' + c.id} />
             </div>
           );
