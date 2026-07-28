@@ -109,6 +109,8 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .move-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
 .move-card{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border:1px solid var(--line-2);border-radius:8px;background:var(--panel-2);color:var(--ink-2);cursor:pointer;font-size:9px;letter-spacing:.02em;text-align:center;transition:border-color .12s,color .12s,background .12s}
 .move-card:hover{border-color:var(--amber-dim);color:var(--ink);background:#20262b}
+.move-card.sel{border-color:var(--amber);color:var(--ink);background:var(--amber-ghost)}
+.move-card.sel svg{color:var(--amber)}
 .move-card svg{color:var(--ink-2)}
 .move-card:hover svg{color:var(--amber)}
 .cam-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;border:1px solid transparent}

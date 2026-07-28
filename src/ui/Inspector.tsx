@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { S, DEFAULT_APERTURE } from '../store';
 import { useRev } from './bits';
 import Outliner from './Outliner';
@@ -106,7 +106,11 @@ function CameraMoves({ cam }: { cam: Camera }) {
   const [dur, setDur] = useState(2.5);
   const [amp, setAmp] = useState(1);
   const [dir, setDir] = useState<1 | -1>(1);
+  const [last, setLast] = useState<{ preset: string; d?: 1 | -1 } | null>(null);
   const targeted = cam.target?.type === 'object';
+  const run = (preset: string, d?: 1 | -1) => { setLast({ preset, d }); applyPreset(preset, { duration: dur, amplitude: amp, ease: 'linear', dir: d ?? dir }); };
+  // Live update: moving a slider (or flipping direction) re-applies the current preset so the effect is visible immediately.
+  useEffect(() => { if (last) applyPreset(last.preset, { duration: dur, amplitude: amp, ease: 'linear', dir: last.d ?? dir }); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [dur, amp, dir]);
   const sliderRow = (label: string, v: number, min: number, max: number, step: number, disp: string, on: (n: number) => void) => (
     <div className="row"><span className="row-lead"><span className="kf-spacer" /><label>{label}</label></span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
@@ -146,8 +150,8 @@ function CameraMoves({ cam }: { cam: Camera }) {
           </div>
           <div className="move-grid">
             {MOVES.map(m => (
-              <button key={m.key} className="move-card" title={m.label}
-                onClick={() => applyPreset(m.preset, { duration: dur, amplitude: amp, ease: 'linear', dir: m.d ?? dir })}>
+              <button key={m.key} className={'move-card' + (last?.preset === m.preset && (m.d ?? undefined) === (last?.d ?? undefined) ? ' sel' : '')} title={m.label}
+                onClick={() => run(m.preset, m.d)}>
                 <MoveIcon kind={m.key} />
                 <span>{m.label}</span>
               </button>
@@ -173,8 +177,8 @@ export default function Inspector() {
       <div className="sect">
         <div className="sect-t">Transform</div>
         <Vec3Row label="Position" ch="position" value={p.position} onChange={(i, v) => st.editPose('position', i, v)} />
+        {cam.target && <div className="hint" style={{ margin: '2px 0' }}>⚿ Rotation driven by target</div>}
         <Vec3Row label="Rotation" ch="rotation" value={p.rotation} step={1} disabled={!!cam.target} onChange={(i, v) => st.editPose('rotation', i, v)} />
-        {cam.target && <div className="lock-note">⚿ Orientation pilotée par la cible.</div>}
         <Vec3Row label="POI" ch="poi" value={poiPoint(cam, st.project.timeline.playhead)} disabled={cam.target?.type === 'object'} onChange={(i, v) => st.editPoi(i, v)} />
       </div>
 
