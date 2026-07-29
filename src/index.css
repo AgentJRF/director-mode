@@ -1,3 +1,8 @@
+/* Adobe Clean (© Adobe Inc.) — self-hosted from /public/fonts (git-ignored, see scripts/fetch-fonts.ps1) */
+@font-face{font-family:"Adobe Clean";src:url("/fonts/AdobeClean-Regular.otf") format("opentype");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Adobe Clean";src:url("/fonts/AdobeClean-Medium.otf") format("opentype");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Adobe Clean";src:url("/fonts/AdobeClean-Bold.otf") format("opentype");font-weight:700;font-style:normal;font-display:swap}
+
 :root{
   /* Adobe Spectrum — dark theme (aligned to Substance 3D Stager / Dimension) */
   --bg:#1d1d1d; --panel:#262626; --panel-2:#323232; --line:#3a3a3a; --line-2:#484848; --line-3:#5c5c5c;
@@ -9,7 +14,7 @@
   --sel:rgba(38,128,235,.18); --sel-ink:#eaf3ff;
   --ok:#33ab84; --warn:#e68619; --err:#e34850; --focus:#2680eb;
   --mono:"SF Mono",ui-monospace,"Cascadia Mono","Consolas",monospace;
-  --sans:"adobe-clean","source-sans-pro",-apple-system,"Segoe UI",Roboto,sans-serif;
+  --sans:"Adobe Clean","adobe-clean","source-sans-pro",-apple-system,"Segoe UI",Roboto,sans-serif;
 }
 *{box-sizing:border-box}
 html,body,#root{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;overflow:hidden;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
