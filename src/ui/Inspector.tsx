@@ -198,7 +198,7 @@ export default function Inspector() {
 
       <div className="sect">
         <div className="sect-t">Optics</div>
-        <Slider label="Focal" ch="focalLength" value={p.focalLength} min={14} max={200} step={1} unit="mm" onChange={v => st.setOptic('focalLength', v)} />
+        <Slider label="Focal" ch="focalLength" value={p.focalLength} min={14} max={200} step={1} prefix="mm" onChange={v => st.setOptic('focalLength', v)} />
         <Slider label="Aperture" ch="aperture" value={p.aperture} min={1.4} max={16} step={0.1} prefix="f/" onChange={v => st.setOptic('aperture', v)} />
         {/* Motion blur is a global On/Off (like AE) with a non-animatable shutter — not a keyframable channel */}
         <div className="row">
