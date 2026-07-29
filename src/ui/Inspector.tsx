@@ -4,6 +4,7 @@ import { useRev } from './bits';
 import Outliner from './Outliner';
 import { evaluate, keysOf, EASE_LIST, EASES, round, poiPoint, clamp } from '../lib/eval';
 import { applyPreset } from '../lib/presets';
+import { IcTarget, IcEyedropper } from './icons';
 
 import type { Camera, Channel, Ease, Keyframe, Vec3 } from '../types';
 
@@ -150,7 +151,7 @@ function CameraMoves({ cam }: { cam: Camera }) {
       {!targeted ? (
         <>
           <div className="hint">① Target an asset to enable moves (orbit, push, crane…).</div>
-          <button className="btn-sm btn-full" style={{ marginTop: 6 }} onClick={() => S().setTool('target')}>◎ Target an asset</button>
+          <button className="btn-sm btn-full" style={{ marginTop: 6, gap: 6 }} onClick={() => S().setTool('target')}><IcTarget size={13} /> Target an asset</button>
         </>
       ) : (
         <>
@@ -212,8 +213,8 @@ export default function Inspector() {
           <span className="val">{cam.optics.focusPoint ? 'Picked' : 'General'}</span>
         </div>
         <div className="chip-row">
-          <button className={'btn-sm' + (st.ui.focusPicking ? ' amber' : '')} onClick={() => st.setFocusPicking(!st.ui.focusPicking)}>
-            ⊙ {st.ui.focusPicking ? 'Picking…' : 'Pick focus'}
+          <button className={'btn-sm' + (st.ui.focusPicking ? ' amber' : '')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={() => st.setFocusPicking(!st.ui.focusPicking)}>
+            <IcEyedropper size={13} /> {st.ui.focusPicking ? 'Picking…' : 'Pick focus'}
           </button>
           <button className={'btn-sm' + (cam.optics.focusPoint || cam.optics.aperture !== DEFAULT_APERTURE ? '' : ' locked')}
             title="General focus + default aperture" onClick={() => st.resetFocus()}>↺ Reset</button>

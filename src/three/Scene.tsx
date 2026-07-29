@@ -44,21 +44,25 @@ function Lights() {
     </>
   );
 }
+// Ground is viewport furniture (not a scene object) — always present as the shadow catcher.
 function Floor() {
-  useStore(s => s.rev); const h = S().ui.hidden;
-  // The grid is an editor reference — hide it in the camera POV (final framing), keep the ground.
-  const showGrid = S().ui.viewMode !== 'camera';
   return (
-    <group visible={!h.floor}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow userData={{ focusPickable: true }}>
-        <circleGeometry args={[26, 64]} /><meshStandardMaterial color={0x20252b} roughness={0.8} metalness={0.1} />
-      </mesh>
-      {/* Dimension-style editor grid — light lines fading with distance (Scene view only). */}
-      {showGrid && <Grid position={[0, 0.002, 0]} infiniteGrid followCamera={false}
-        cellSize={1} cellThickness={0.6} cellColor="#3f3f3f"
-        sectionSize={5} sectionThickness={1} sectionColor="#5b6470"
-        fadeDistance={34} fadeStrength={1.4} />}
-    </group>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow userData={{ focusPickable: true }}>
+      <circleGeometry args={[26, 64]} /><meshStandardMaterial color={0x20252b} roughness={0.8} metalness={0.1} />
+    </mesh>
+  );
+}
+// Dimension/Stager-style ground grid: an INFINITE shader grid (single quad, ~free — not real geometry),
+// independent of the environment (not tied to the Ground toggle). Editor (Scene) view only; hidden in
+// the camera POV so it never appears in the final framing.
+function EditorGrid() {
+  useStore(s => s.rev);
+  if (S().ui.viewMode === 'camera') return null;
+  return (
+    <Grid position={[0, 0.002, 0]} infiniteGrid followCamera={false}
+      cellSize={1} cellThickness={0.6} cellColor="#3f3f3f"
+      sectionSize={5} sectionThickness={1} sectionColor="#5b6470"
+      fadeDistance={100} fadeStrength={1} />
   );
 }
 function DoF() {
@@ -95,6 +99,7 @@ export default function Scene() {
       <ViewBackground />
       <Lights />
       <Floor />
+      <EditorGrid />
       <Suspense fallback={null}><Product /></Suspense>
       <CameraController renderCamRef={renderCamRef} />
       <FocusPicker />

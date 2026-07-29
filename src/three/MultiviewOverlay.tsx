@@ -16,7 +16,7 @@ export default function MultiviewOverlay() {
   if (ui.viewMode !== 'scene' || !ui.multiview) return null;
   const line: React.CSSProperties = { position: 'absolute', background: 'rgba(120,130,140,0.45)' };
   const label: React.CSSProperties = {
-    position: 'absolute', font: '10px/1 ui-monospace, monospace', letterSpacing: '.08em',
+    position: 'absolute', fontSize: 10, fontWeight: 600, letterSpacing: '.08em',
     textTransform: 'uppercase', color: '#9aa3ab', textShadow: '0 1px 2px #000', padding: '2px 4px',
   };
   return (

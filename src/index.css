@@ -21,7 +21,7 @@
 html,body,#root{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;overflow:hidden;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
 input,textarea,select{user-select:text;-webkit-user-select:text}
 #tl-svg{touch-action:none}
-#tl-svg text{user-select:none;-webkit-user-select:none}
+#tl-svg text{user-select:none;-webkit-user-select:none;font-family:var(--sans)}
 button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .hidden{display:none!important}

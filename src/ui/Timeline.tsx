@@ -157,7 +157,7 @@ export default function Timeline() {
             return (
               <g key={f}>
                 <line x1={px} y1={label ? TOP_H - 8 : TOP_H - 4} x2={px} y2={label ? H : TOP_H} stroke={label ? '#232a2f' : '#1a1e21'} />
-                {label && <text x={px + 3} y={13} fill="#6b747c" fontSize={9} fontFamily="monospace">{durUnit === 'f' ? f : toTimecode(f / fps, fps)}</text>}
+                {label && <text x={px + 3} y={13} fill="#6b747c" fontSize={9} style={{ fontVariantNumeric: 'tabular-nums' }}>{durUnit === 'f' ? f : toTimecode(f / fps, fps)}</text>}
               </g>
             );
           })}
