@@ -16,7 +16,10 @@ export default function CameraController({ renderCamRef }: { renderCamRef: RefOb
 
   useEffect(() => {
     const dom = gl.domElement;
-    const canOrbit = () => S().ui.viewMode === 'camera' && !S().ui.focusPicking && ['select', 'camera'].includes(S().ui.tool);
+    // Camera view is a pure preview ("what the camera sees") — no orbit/dolly here; the camera is
+    // composed/edited in the Scene view (OrbitControls + gizmo). Prevents accidentally re-posing an
+    // animated shot by dragging in the POV.
+    const canOrbit = () => false;
     const down = (e: PointerEvent) => {
       if (!canOrbit()) return;
       dragging.current = true; last.current = { x: e.clientX, y: e.clientY };
