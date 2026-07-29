@@ -35,6 +35,9 @@ double-clique **`start-dev.cmd`** (il ajoute Node au PATH et lance le serveur).
 **Démo sans rien installer** : ouvre le lien **StackBlitz** en haut du README (il lance
 `npm run dev` dans le navigateur). Dépôt privé ⇒ compte GitHub autorisé requis.
 
+📄 **Toutes les procédures d'accès/démo** (local, Codespaces, StackBlitz, accès collègues,
+dépannage) : voir **[`ACCESS.md`](ACCESS.md)**.
+
 ### IA — match caméra depuis une image (optionnel)
 « ✦ AI image » (Topbar) : on **upload une photo** et l'IA estime l'angle, la focale et l'ouverture
 pour composer le plan (sans poser de clés). L'appel passe par un **proxy local** du serveur Vite
