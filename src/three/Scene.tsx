@@ -1,5 +1,5 @@
-import { Canvas } from '@react-three/fiber';
-import { Suspense, useRef } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import { Suspense, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { PerspectiveCamera, OrbitControls, Grid } from '@react-three/drei';
 import { EffectComposer, DepthOfField } from '@react-three/postprocessing';
@@ -16,6 +16,18 @@ import MultiviewRenderer from './multiview/MultiviewRenderer';
 import { useStore, PIVOT, S } from '../store';
 import { clamp, evalChannel } from '../lib/eval';
 
+// Editor viewport uses a neutral Dimension-style gray; the Camera POV keeps the studio dark so the
+// final render/backdrop is unchanged.
+function ViewBackground() {
+  const scene = useThree(s => s.scene);
+  const mode = useStore(s => s.ui.viewMode);
+  useEffect(() => {
+    const col = mode === 'camera' ? 0x1a1e22 : 0x2c2f34;
+    scene.background = new THREE.Color(col);
+    scene.fog = new THREE.Fog(col, 22, mode === 'camera' ? 48 : 65);
+  }, [mode, scene]);
+  return null;
+}
 function Lights() {
   useStore(s => s.rev); const h = S().ui.hidden;
   return (
@@ -80,6 +92,7 @@ export default function Scene() {
       onCreated={({ scene, gl }) => { scene.background = new THREE.Color(0x1a1e22); scene.fog = new THREE.Fog(0x1a1e22, 22, 48); gl.toneMappingExposure = 1.25; }}>
       <PerspectiveCamera ref={renderCamRef} makeDefault={mode === 'camera'} fov={45} near={0.1} far={200} position={[4, 2.2, 5]} />
       <PerspectiveCamera ref={sceneCamRef} makeDefault={mode === 'scene'} fov={50} near={0.1} far={500} position={[8, 5, 9]} />
+      <ViewBackground />
       <Lights />
       <Floor />
       <Suspense fallback={null}><Product /></Suspense>

@@ -30,7 +30,7 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
   grid-template-areas:"top top top" "tools stage inspect" "tools timeline inspect";}
 #topbar{grid-area:top;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--menubar);border-bottom:1px solid var(--seam)}
 #toolbar{grid-area:tools;background:var(--menubar);border-right:1px solid var(--seam);display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:10px}
-#stage{grid-area:stage;position:relative;overflow:hidden;background:#000;min-width:0}
+#stage{grid-area:stage;position:relative;overflow:hidden;background:#2c2c2c;min-width:0}
 #inspector{grid-area:inspect;background:var(--panel);border-left:1px solid var(--seam);overflow-y:auto}
 #timeline{grid-area:timeline;background:var(--panel);border-top:1px solid var(--seam);display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
 .tl-top{flex-wrap:wrap}
@@ -62,7 +62,7 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 #viewport-frame{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:22px}
 /* split view: Scene editor (left) | live Camera POV (right) */
 #stage.split #viewport-frame{right:50%}
-.split-right{position:absolute;top:0;right:0;bottom:0;width:50%;background:#000;border-left:1px solid var(--line);display:flex;align-items:center;justify-content:center;padding:22px}
+.split-right{position:absolute;top:0;right:0;bottom:0;width:50%;background:#2c2c2c;border-left:1px solid var(--seam);display:flex;align-items:center;justify-content:center;padding:22px}
 .split-cam{position:relative;width:100%;max-width:100%;max-height:100%;box-shadow:0 8px 40px rgba(0,0,0,.6)}
 .split-divider{position:absolute;top:0;bottom:0;width:8px;margin-left:-4px;z-index:20;cursor:col-resize;background:transparent}
 .split-divider:hover,.split-divider.drag{background:var(--amber-dim)}
