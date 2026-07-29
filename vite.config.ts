@@ -233,6 +233,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
     plugins: [react(), aiPlugin(env)],
-    server: { port: 5173, strictPort: true, host: '127.0.0.1' },
+    // allowedHosts lets the GitHub Codespaces proxy (*.app.github.dev) reach the dev server; harmless
+    // locally (localhost is always allowed).
+    server: { port: 5173, strictPort: true, host: '127.0.0.1', allowedHosts: ['.app.github.dev'] },
   };
 })
