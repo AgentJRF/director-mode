@@ -25,12 +25,12 @@ const TargetIcon = () => (
     <path d="M8 0.8 L8 3 M8 13 L8 15.2 M0.8 8 L3 8 M13 8 L15.2 8" strokeLinecap="round" />
   </svg>
 );
-// two keyframes linked by a curve (Interpolate A→B)
+// start keyframe → arrow to the end (Interpolate A→B)
 const InterpIcon = () => (
-  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden>
-    <path d="M4.2 10.6 C 7 7.6, 9 6.2, 11.8 5.2" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    <circle cx="3" cy="11.6" r="1.7" fill="currentColor" />
-    <circle cx="13" cy="4.6" r="1.7" fill="currentColor" />
+  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="2.9" cy="8" r="1.9" fill="currentColor" stroke="none" />
+    <line x1="5.2" y1="8" x2="12.4" y2="8" />
+    <path d="M9.4 5 L13.2 8 L9.4 11" />
   </svg>
 );
 
