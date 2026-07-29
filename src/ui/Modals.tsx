@@ -212,8 +212,19 @@ function AIVideoModal() {
 
   if (est && vid) {
     const aspect = S().project.canvas.width / S().project.canvas.height;
-    const from = stepToPose(est.start), to = stepToPose(est.end);
-    const { c1, c2 } = arcControls(from, to);
+    const add = (p: Vec3, q: Vec3): Vec3 => [p[0] + q[0], p[1] + q[1], p[2] + q[2]];
+    // Exact hand-authored move: preview its own spline (first→last key, tangents, target). Else the
+    // computed spherical arc from start→end.
+    const ex = est.exact;
+    const ks = ex?.keys;
+    const from = ks ? ks[0].pos : stepToPose(est.start);
+    const to = ks ? ks[ks.length - 1].pos : stepToPose(est.end);
+    const arc = ks ? null : arcControls(from, to);
+    const c1 = ks ? (ks[0].tOut ? add(ks[0].pos, ks[0].tOut) : ks[0].pos) : arc!.c1;
+    const c2 = ks ? (ks[ks.length - 1].tIn ? add(ks[ks.length - 1].pos, ks[ks.length - 1].tIn!) : ks[ks.length - 1].pos) : arc!.c2;
+    const aim: Vec3 = ex?.target ?? (PIVOT.toArray() as Vec3);
+    const previewFocal = ex ? ex.focal : est.start.focal;
+    const previewDur = ex ? ex.duration : est.duration;
     return (
       <Shell title="AI review · Motion from video"
         footer={<><button className="tbtn" onClick={back}>← Back</button>
@@ -226,7 +237,7 @@ function AIVideoModal() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="sect-t" style={{ padding: 0, margin: '0 0 4px' }}>Matched move (preview)</div>
             <div style={{ width: '100%', aspectRatio: String(aspect), borderRadius: 6, overflow: 'hidden', border: '1px solid var(--line-2)' }}>
-              <MotionPreview from={from} to={to} c1={c1} c2={c2} focal={est.start.focal} aspect={aspect} duration={est.duration} />
+              <MotionPreview from={from} to={to} c1={c1} c2={c2} aim={aim} focal={previewFocal} aspect={aspect} duration={previewDur} />
             </div>
           </div>
         </div>
@@ -234,7 +245,7 @@ function AIVideoModal() {
         <div className="row"><label>Confidence</label><ConfBar c={est.confidence} /></div>
         {est.mocked && <span className="badge proto">estimated (heuristic)</span>}
         <p className="hint" style={{ marginTop: 6 }}>{est.reasoning}</p>
-        <p className="hint">Baked as a smooth Bézier arc (2 editable keys) that keeps the product framed — natural crane feel, not a straight line.</p>
+        <p className="hint">Baked as editable Bézier keyframes on the active camera, keeping the product framed — natural crane feel, not a straight line.</p>
       </Shell>
     );
   }

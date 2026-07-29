@@ -87,7 +87,10 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
 // A global camera gesture as a start→end framing (spherical az/el/dist + focal/aperture), returned by
 // /api/match-motion and turned here into a few EDITABLE carrier keyframes (never one per frame).
 export interface MotionStep { az: number; el: number; dist: number; focal: number; aperture: number }
-export interface MotionSpec { gesture: string; duration: number; ease: Ease; start: MotionStep; end: MotionStep }
+// Exact baked animation (verbatim keyframes) — a hand-authored move captured from the app.
+export interface MotionKey { t: number; pos: Vec3; ease: Ease; tOut?: Vec3; tIn?: Vec3 }
+export interface MotionExact { target: Vec3 | null; focal: number; aperture: number; duration: number; keys: MotionKey[] }
+export interface MotionSpec { gesture: string; duration: number; ease: Ease; start: MotionStep; end: MotionStep; exact?: MotionExact }
 
 // Same spherical mapping as AIImageModal.applyForm / MatchPreview: distance is a ×2 factor, az/el degrees.
 export function stepToPose(s: MotionStep): Vec3 {
@@ -117,7 +120,25 @@ export function arcControls(p0: Vec3, p1: Vec3): { c1: Vec3; c2: Vec3 } {
   return { c1: [c1.x, c1.y, c1.z], c2: [c2.x, c2.y, c2.z] };
 }
 
+// Apply a hand-authored move verbatim: exact position keys (with Bézier tangents), point target, optics.
+function applyExactMotion(spec: MotionSpec, ex: MotionExact) {
+  const st = S(); const cam = st.active();
+  if (ex.duration > st.project.timeline.duration) st.setDuration(ex.duration); // make room for the whole move
+  cam.keyframes = [];
+  cam.target = ex.target ? { type: 'point', point: [...ex.target] as Vec3 } : null; // aim (rotation derived)
+  cam.transform.position = [...ex.keys[0].pos] as Vec3;
+  ex.keys.forEach((k, i) => {
+    const kk = upsertKeyOn(cam, 'position', k.pos, k.t, 'aiVideo', i ? k.ease : 'linear');
+    if (k.tOut) kk.tangentOut = [...k.tOut] as Vec3;
+    if (k.tIn) kk.tangentIn = [...k.tIn] as Vec3;
+  });
+  cam.optics.focalLength = ex.focal; cam.optics.aperture = ex.aperture; cam.optics.focusPoint = null;
+  st.setPlayhead(0); st.bump();
+  st.toast(`AI motion "${spec.gesture}" applied`);
+}
+
 export function applyMotionSpec(spec: MotionSpec) {
+  if (spec.exact) { applyExactMotion(spec, spec.exact); return; } // hand-authored move wins
   const st = S(); const cam = st.active(); const tl = st.project.timeline;
   const t0 = tl.playhead; const t1 = Math.min(t0 + spec.duration, tl.duration);
   const ease = spec.ease ?? 'easeInOut';

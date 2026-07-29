@@ -143,9 +143,13 @@ function heuristic(body: Record<string, unknown>): Estimate {
 // carrier keyframes. Baked per reference clip by file-name substring (no real video analysis / key
 // needed) — the video counterpart of the image /api/match-camera demo overrides.
 interface MotionStep { az: number; el: number; dist: number; focal: number; aperture: number }
+type EaseName = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'easeInOutStrong';
+// Exact baked animation (verbatim keyframes) — overrides the spherical start/end arc when present.
+interface MotionKey { t: number; pos: [number, number, number]; ease: EaseName; tOut?: [number, number, number]; tIn?: [number, number, number] }
+interface MotionExact { target: [number, number, number] | null; focal: number; aperture: number; duration: number; keys: MotionKey[] }
 interface MotionEstimate {
   gesture: string; duration: number; ease: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
-  start: MotionStep; end: MotionStep; confidence: number; reasoning: string; mocked?: boolean;
+  start: MotionStep; end: MotionStep; confidence: number; reasoning: string; mocked?: boolean; exact?: MotionExact;
 }
 // Coffee-machine reference (Coffee_Machine_Video.mp4): a FACE-ON reveal that opens up (tight → wide) —
 // starts close at a near eye-level hero framing, then cranes up and pulls back to a wider high-angle
@@ -153,10 +157,18 @@ interface MotionEstimate {
 const COFFEE_REVEAL: MotionEstimate = {
   gesture: 'push-out + crane-up (tight → wide)', duration: 1.73, ease: 'easeInOut',
   start: { az: 0, el: 6, dist: 2.1, focal: 50, aperture: 4 },
-  end: { az: 0, el: 42, dist: 3.0, focal: 50, aperture: 4 },
+  end: { az: 0, el: 20, dist: 3.6, focal: 50, aperture: 4 },
   confidence: 0.83,
-  reasoning: 'Face-on reveal that opens up: starts tight at a near eye-level hero framing, then cranes up and pulls back to a wider high-angle view; the product stays centered and straight-front (no orbit). ~1.7s, ease-in-out.',
+  reasoning: 'Face-on reveal that opens up: starts tight at a near eye-level hero framing, then cranes up and pulls back to a wider view at a gentle high angle; the product stays centered and straight-front (no orbit). ~1.7s.',
   mocked: false,
+  // Hand-authored move (captured from the app): the exact spline is applied verbatim.
+  exact: {
+    target: [0, 1.5, 0], focal: 50, aperture: 4, duration: 1.73,
+    keys: [
+      { t: 0, pos: [0, 1.704, 5.418], ease: 'linear', tOut: [0.012, -0.052, 1.064] },
+      { t: 1.73, pos: [0, 3.777, 7.71], ease: 'easeInOut', tIn: [0.002, -1.125, -0.042] },
+    ],
+  },
 };
 // Matched by SUBSTRING of the uploaded file name (lowercased), same as the image demo overrides.
 const MOTION_DEMO: Record<string, MotionEstimate> = {

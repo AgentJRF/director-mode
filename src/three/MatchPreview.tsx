@@ -41,10 +41,11 @@ export default function MatchPreview({ azimuth, elevation, distance, focal, aspe
 // Looping preview of a MOVE (AI video match): ping-pongs the camera along the Bézier arc from → to
 // (control points c1,c2), aiming at the product — a live thumbnail of the gesture, matching the exact
 // curve applyMotionSpec bakes into the keyframes.
-function AnimRig({ from, to, c1, c2, focal, aspect, duration }:
-  { from: Vec3; to: Vec3; c1: Vec3; c2: Vec3; focal: number; aspect: number; duration: number }) {
+function AnimRig({ from, to, c1, c2, aim, focal, aspect, duration }:
+  { from: Vec3; to: Vec3; c1: Vec3; c2: Vec3; aim?: Vec3; focal: number; aspect: number; duration: number }) {
   const camera = useThree(s => s.camera) as THREE.PerspectiveCamera;
   const t0 = useRef(performance.now());
+  const look = useRef(new THREE.Vector3());
   useFrame(() => {
     const per = Math.max(0.2, duration);
     const el = ((performance.now() - t0.current) / 1000) % (per * 2);
@@ -52,14 +53,14 @@ function AnimRig({ from, to, c1, c2, focal, aspect, duration }:
     u = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;      // ease-in-out (matches key ease)
     const [x, y, z] = bezier3(from, c1, c2, to, u);               // same cubic Bézier as the timeline
     camera.position.set(x, y, z);
-    camera.lookAt(PIVOT);
+    camera.lookAt(aim ? look.current.set(...aim) : PIVOT);        // aim at the move's target
     camera.filmGauge = 36; camera.setFocalLength(focal);
     camera.aspect = aspect; camera.near = 0.1; camera.far = 200; camera.updateProjectionMatrix();
   });
   return null;
 }
 
-export function MotionPreview({ from, to, c1, c2, focal, aspect, duration }:
-  { from: Vec3; to: Vec3; c1: Vec3; c2: Vec3; focal: number; aspect: number; duration: number }) {
-  return <StudioCanvas><AnimRig from={from} to={to} c1={c1} c2={c2} focal={focal} aspect={aspect} duration={duration} /></StudioCanvas>;
+export function MotionPreview({ from, to, c1, c2, aim, focal, aspect, duration }:
+  { from: Vec3; to: Vec3; c1: Vec3; c2: Vec3; aim?: Vec3; focal: number; aspect: number; duration: number }) {
+  return <StudioCanvas><AnimRig from={from} to={to} c1={c1} c2={c2} aim={aim} focal={focal} aspect={aspect} duration={duration} /></StudioCanvas>;
 }
