@@ -12,7 +12,7 @@ export const PIVOT = new THREE.Vector3(0, 0.9, 0);
 export const DEFAULT_APERTURE = 8.0;
 
 // Distinct, cycling palette for camera tracks/gizmos (first one = the legacy purple).
-export const CAM_COLORS = ['#a64ce0', '#4c9ee0', '#4fb477', '#f2a33c', '#e0574c', '#e04c9e', '#4cd6d6', '#b0b64c'];
+export const CAM_COLORS = ['#8e63b3', '#5b8fbf', '#57a07d', '#cf9a58', '#cc6a61', '#c56a9f', '#57b3b3', '#9fa563'];
 
 function makeCamera(name: string, pos: Vec3 = [4, 2.2, 5], color: string = CAM_COLORS[0]): Camera {
   return {
@@ -171,13 +171,7 @@ export const useStore = create<StoreState>((set, get) => {
     setDuration: d => { const t = get().project.timeline; t.duration = clamp(Math.round(d * 1000) / 1000, 0.1, 120); if (t.playhead > t.duration) t.playhead = t.duration; bump(); },
     setFps: f => { get().project.fps = clamp(Math.round(f), 1, 120); bump(); },
     setCanvas: (w, h) => { get().project.canvas = { width: w, height: h }; bump(); },
-    setOptic: (k, v) => {
-      const cam = active(); const t = get().project.timeline.playhead;
-      const ch: Channel = k === 'focalLength' ? 'focalLength' : k === 'aperture' ? 'aperture' : 'motionBlur';
-      if (keysOf(cam, ch).length) upsertKeyOn(cam, ch, v, t, 'manual'); // animated → key at playhead
-      else cam.optics[k] = v;
-      bump();
-    },
+    setOptic: (k, v) => { active().optics[k] = v; bump(); }, // optics are static per shot (not keyframable)
     toggleKeyAt: (ch, value) => {
       const cam = active(); const t = get().project.timeline.playhead;
       const ex = keysOf(cam, ch).find(k => Math.abs(k.time - t) < 0.02);

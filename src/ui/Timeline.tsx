@@ -5,7 +5,7 @@ import { clamp, evaluate, keysOf, poiPoint } from '../lib/eval';
 import { toTimecode, snapToFrame, niceFrameStep } from '../lib/time';
 import type { Channel, Keyframe } from '../types';
 
-const TRACK_H = 34, ROW_H = 18, GAP = 8, TOP_H = 22, LEFT = 8, RIGHT = 24;
+const TRACK_H = 26, ROW_H = 18, GAP = 8, TOP_H = 22, LEFT = 8, RIGHT = 24;
 const PLAYHEAD = '#29b6f6';
 
 type RowDef = { label: string; ch: Channel; lock?: boolean };
@@ -169,8 +169,8 @@ export default function Timeline() {
             const ks = c.keyframes;
             return (
               <g key={c.id}>
-                <rect data-cam={c.id} x={LEFT} y={headerY} width={barW} height={TRACK_H} rx={9}
-                  fill={c.color} fillOpacity={active ? 1 : 0.42} style={{ cursor: 'pointer' }} />
+                <rect data-cam={c.id} x={LEFT} y={headerY} width={barW} height={TRACK_H} rx={6}
+                  fill={c.color} fillOpacity={active ? 0.9 : 0.4} style={{ cursor: 'pointer' }} />
                 {/* collapsed: one small rectangle per keyframe time (merged) to locate the keys */}
                 {!exp && [...new Set(ks.map(k => Math.round(k.time * 1000)))].map(ms => {
                   const kx = x(ms / 1000);
