@@ -4,7 +4,6 @@ import MatchPreview, { MotionPreview } from '../three/MatchPreview';
 import { useRev } from './bits';
 import { evaluate, eulerFromLookAt, sphericalToPose, clamp } from '../lib/eval';
 import { fuseAB, applyMotionSpec, stepToPose, arcControls, type MotionSpec, type MotionStep } from '../lib/presets';
-import { LUT_PRESETS, applyLutToCanvas } from '../lib/lut';
 import type { Ease, Vec3 } from '../types';
 
 function Shell({ title, children, footer }: { title: string; children: React.ReactNode; footer: React.ReactNode }) {
@@ -28,11 +27,6 @@ const ConfBar = ({ c }: { c: number }) => (
   <span className="conf" style={{ flex: 1 }}>
     <span className="conf-bar"><i style={{ width: Math.round(c * 100) + '%', background: c > 0.8 ? '#4fb477' : c > 0.7 ? '#e0a34a' : '#d9614e' }} /></span>
     <span className="val">{Math.round(c * 100)}%</span>
-  </span>
-);
-const FileStub = ({ kind }: { kind: 'image' | 'video' }) => (
-  <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ink-2)' }}>
-    <span>… or import:</span><input type="file" accept={kind === 'image' ? 'image/*' : 'video/*'} style={{ fontSize: 11 }} /><span className="badge proto">estimated</span>
   </span>
 );
 
@@ -264,41 +258,6 @@ function AIVideoModal() {
   );
 }
 
-function ColorModal() {
-  useRev(); const st = S(); const proj = st.project;
-  if (proj.luts.length === 0) { st.addLut({ name: LUT_PRESETS[0].name, grade: { ...LUT_PRESETS[0].grade }, swatch: LUT_PRESETS[0].swatch }); }
-  return (
-    <Shell title="Color / LUT" footer={<button className="tbtn" onClick={() => S().setModal(null)}>Close</button>}>
-      <p className="hint" style={{ marginTop: 0 }}>Color / LUT (mocked). Derives a LUT from a single frame → grade applied to the viewport. Off-timeline: lives here, never in the timeline.</p>
-      <div className="sect-t" style={{ padding: 0, margin: '10px 0 4px' }}>LUT library</div>
-      <div className="lut-lib">
-        {proj.luts.map(l => (
-          <div key={l.id} className={'lut-sw' + (l.id === proj.activeLutId ? ' sel' : '')} onClick={() => { st.setActiveLut(l.id); applyLutToCanvas(proj); }}>
-            <div className="sw" style={{ background: l.swatch }} /><div className="nm">{l.name}</div>
-          </div>
-        ))}
-        <div className={'lut-sw' + (proj.activeLutId === null ? ' sel' : '')} onClick={() => { st.setActiveLut(null); applyLutToCanvas(proj); }}>
-          <div className="sw" style={{ background: '#111' }} /><div className="nm">None</div>
-        </div>
-      </div>
-      <div className="sect-t" style={{ padding: 0, margin: '16px 0 4px' }}>Derive from a frame</div>
-      <div className="tabs">
-        {LUT_PRESETS.map(p => (
-          <div key={p.name} className="tab" onClick={() => {
-            st.addLut({ name: p.name, grade: { ...p.grade }, swatch: p.swatch });
-            const last = proj.luts[proj.luts.length - 1]; st.setActiveLut(last.id); applyLutToCanvas(proj); st.toast('LUT "' + p.name + '" added');
-          }}>{p.name}</div>
-        ))}
-      </div>
-      <label className="checkline"><FileStub kind="image" /> (palette sampling)</label>
-      <div className="sect-t" style={{ padding: 0, margin: '16px 0 4px' }}>From an AI reference</div>
-      <label className="checkline"><input type="checkbox" /> Match camera (pose + optics)</label>
-      <label className="checkline"><input type="checkbox" defaultChecked /> Match color (LUT)</label>
-      <div className="hint">Both options are independent (separate checkboxes).</div>
-    </Shell>
-  );
-}
-
 const RATIOS: [string, number, number][] = [['16:9', 1920, 1080], ['9:16', 1080, 1920], ['1:1', 1080, 1080], ['2.39:1', 2048, 858], ['4:5', 1080, 1350]];
 
 function ExportModal() {
@@ -357,7 +316,6 @@ export default function Modals() {
   if (m === 'interp') return <InterpModal />;
   if (m === 'ai-image') return <AIImageModal />;
   if (m === 'ai-video') return <AIVideoModal />;
-  if (m === 'color') return <ColorModal />;
   if (m === 'export') return <ExportModal />;
   return null;
 }

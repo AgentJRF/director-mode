@@ -14,7 +14,6 @@ import SplineOverlay from './three/SplineOverlay';
 import MultiviewOverlay from './three/MultiviewOverlay';
 import MarqueeOverlay from './three/MarqueeOverlay';
 import { S, useStore } from './store';
-import { applyLutToCanvas } from './lib/lut';
 import { R3 } from './three/shared';
 import type { Tool } from './types';
 
@@ -68,15 +67,13 @@ export default function App() {
     return () => window.removeEventListener('resize', fit);
   }, [rev, insW, tlH, splitPos, split]);
 
-  useEffect(() => { applyLutToCanvas(S().project); }, [rev]);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
       const st = S();
       if (e.key === 'Escape' && st.ui.interp) { st.cancelInterp(); return; }
       if (e.key === ' ') { e.preventDefault(); const tl = st.project.timeline; if (tl.playhead >= tl.duration) st.setPlayhead(0); st.setPlaying(!tl.playing); }
-      const map: Record<string, Tool> = { v: 'select', c: 'camera', t: 'target', o: 'optics' };
+      const map: Record<string, Tool> = { v: 'select', c: 'camera', t: 'target' };
       if (map[e.key]) st.setTool(map[e.key]);
       if (e.key === 'r') st.setGizmoSpace(st.ui.gizmoSpace === 'world' ? 'local' : 'world');
       if (e.key === '4' && st.ui.viewMode === 'scene') st.setMultiview(!st.ui.multiview);

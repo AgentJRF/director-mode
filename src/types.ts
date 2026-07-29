@@ -33,14 +33,7 @@ export interface Camera {
   keyframes: Keyframe[];
 }
 
-export interface LUT {
-  id: string;
-  name: string;
-  grade: { exposure: number; contrast: number; temperature: number; tint: number; saturation: number };
-  swatch?: string;
-}
-
-export type Tool = 'select' | 'camera' | 'target' | 'optics';
+export type Tool = 'select' | 'camera' | 'target';
 
 export interface Project {
   cameras: Camera[];
@@ -48,6 +41,4 @@ export interface Project {
   fps: number;
   timeline: { duration: number; playhead: number; playing: boolean };
   canvas: { width: number; height: number };
-  luts: LUT[];
-  activeLutId: string | null;
 }

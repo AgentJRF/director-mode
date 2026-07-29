@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import * as THREE from 'three';
-import type { Camera, Channel, Ease, KeySource, LUT, Project, Target, Tool, Vec3 } from './types';
+import type { Camera, Channel, Ease, KeySource, Project, Target, Tool, Vec3 } from './types';
 import { clamp, eulerFromLookAt, evaluate, keysOf, poiPoint, round, uid, hasAnim } from './lib/eval';
 
-export type ModalKind = null | 'interp' | 'ai-image' | 'ai-video' | 'ai-review-image' | 'ai-review-video' | 'color' | 'export';
+export type ModalKind = null | 'interp' | 'ai-image' | 'ai-video' | 'ai-review-image' | 'ai-review-video' | 'export';
 
 // Shared orbit pivot (product center); updated when the asset loads.
 export const PIVOT = new THREE.Vector3(0, 0.9, 0);
@@ -96,8 +96,6 @@ interface StoreState {
   setKeyEase: (id: string, e: Ease) => void;
   setKeysEase: (ids: string[], e: Ease) => void;
   commitPose: (position: Vec3, rotation: Vec3) => void;
-  addLut: (l: Omit<LUT, 'id'>) => void;
-  setActiveLut: (id: string | null) => void;
   setModal: (m: ModalKind) => void;
   setPoseAB: (which: 'A' | 'B', p: Pose | null) => void;
   setRecording: (b: boolean) => void;
@@ -117,7 +115,6 @@ export const useStore = create<StoreState>((set, get) => {
     cameras: [initial], activeCameraId: initial.id, fps: 30,
     timeline: { duration: 5, playhead: 0, playing: false },
     canvas: { width: 1920, height: 1080 },
-    luts: [], activeLutId: null,
   };
   const bump = () => set(s => ({ rev: s.rev + 1 }));
   const active = () => { const p = get().project; return p.cameras.find(c => c.id === p.activeCameraId)!; };
@@ -246,8 +243,6 @@ export const useStore = create<StoreState>((set, get) => {
       }
       bump();
     },
-    addLut: l => { get().project.luts.push({ ...l, id: uid() }); bump(); },
-    setActiveLut: id => { get().project.activeLutId = id; bump(); },
     setModal: m => { get().ui.modal = m; bump(); },
     setPoseAB: (which, p) => { if (which === 'A') get().ui.poseA = p; else get().ui.poseB = p; bump(); },
     setRecording: b => { get().ui.recording = b; bump(); },

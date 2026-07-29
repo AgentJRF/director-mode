@@ -5,8 +5,8 @@
 
 :root{
   /* Adobe Spectrum — dark theme (aligned to Substance 3D Stager / Dimension) */
-  --bg:#1d1d1d; --panel:#2e2e2e; --panel-2:#3a3a3a; --line:#333333; --line-2:#454545; --line-3:#5a5a5a;
-  --menubar:#1c1c1c;
+  --bg:#1d1d1d; --panel:#2e2e2e; --panel-2:#3a3a3a; --line:#3f3f3f; --line-2:#4a4a4a; --line-3:#5a5a5a;
+  --menubar:#1c1c1c; --seam:#141414;
   --ink:#f4f4f4; --ink-2:#b8b8b8; --ink-3:#808080;
   /* generative / keyframe accent (Spectrum orange) */
   --amber:#e68619; --amber-dim:#7f4e18; --amber-ghost:rgba(230,134,25,.15);
@@ -28,11 +28,11 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 
 #app{position:relative;display:grid;height:100%;grid-template-columns:48px 1fr 300px;grid-template-rows:40px 1fr 224px;
   grid-template-areas:"top top top" "tools stage inspect" "tools timeline inspect";}
-#topbar{grid-area:top;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--menubar)}
-#toolbar{grid-area:tools;background:var(--menubar);display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:10px}
+#topbar{grid-area:top;display:flex;align-items:center;gap:12px;padding:0 14px;background:var(--menubar);border-bottom:1px solid var(--seam)}
+#toolbar{grid-area:tools;background:var(--menubar);border-right:1px solid var(--seam);display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:10px}
 #stage{grid-area:stage;position:relative;overflow:hidden;background:#000;min-width:0}
-#inspector{grid-area:inspect;background:var(--panel);overflow-y:auto}
-#timeline{grid-area:timeline;background:var(--panel);display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+#inspector{grid-area:inspect;background:var(--panel);border-left:1px solid var(--seam);overflow-y:auto}
+#timeline{grid-area:timeline;background:var(--panel);border-top:1px solid var(--seam);display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
 .tl-top{flex-wrap:wrap}
 
 .brand{font-weight:700;letter-spacing:.01em}
@@ -97,8 +97,8 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 .gchip:hover{border-color:var(--amber-dim);color:var(--ink)}
 .gsep{width:1px;height:20px;background:var(--line-2);margin:0 2px}
 
-.insp-h{padding:14px 16px 4px;font-size:13px;font-weight:600;color:var(--ink)}
-.sect{padding:8px 16px 16px}
+.insp-h{padding:14px 16px 10px;font-size:13px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--line)}
+.sect{padding:14px 16px;border-bottom:1px solid var(--line)}
 .sect-t{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
 .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}
 .row label{font-size:12px;color:var(--ink-2);white-space:nowrap}
@@ -172,7 +172,7 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .ol-eye{display:flex;align-items:center;justify-content:center;width:18px;flex:0 0 18px;cursor:pointer;color:var(--ink-3);opacity:.6}
 .ol-eye:hover{opacity:1;color:var(--ink)}
 
-.tl-top{display:flex;align-items:center;gap:10px;padding:8px 12px}
+.tl-top{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line)}
 .transport{display:flex;gap:4px}
 .tbtn-round{width:30px;height:30px;border-radius:6px;background:var(--panel-2);border:1px solid var(--line-2);color:var(--ink);display:flex;align-items:center;justify-content:center;font-size:13px}
 .tbtn-round:hover{border-color:var(--line-3);background:#3a3a3a}
@@ -194,7 +194,7 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .tc{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px;color:var(--ink);background:#1a1a1a;border:1px solid var(--line-2);border-radius:4px;padding:3px 8px}
 .tl-field{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-2)}
 .tl-field select,.tl-field input{padding:3px 6px}
-.tl-zoom{display:flex;align-items:center;gap:8px;padding:5px 12px}
+.tl-zoom{display:flex;align-items:center;gap:8px;padding:5px 12px;border-top:1px solid var(--line)}
 .tl-zoom .mtn{color:var(--ink-3)}
 .tl-zoom .tl-fit{padding:3px 7px;font-size:10px}
 .tl-viz-label{font-size:10px;color:var(--ink-3);margin-right:2px}
@@ -223,11 +223,6 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .tab{padding:6px 12px;border-radius:6px;font-size:12px;color:var(--ink-2);background:var(--panel-2);border:1px solid var(--line-2)}
 .tab.sel{color:var(--ink);border-color:var(--focus)}
 .checkline{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);margin:8px 0}
-.lut-lib{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.lut-sw{width:56px;border-radius:6px;overflow:hidden;border:1px solid var(--line-2);cursor:pointer}
-.lut-sw.sel{border-color:var(--amber)}
-.lut-sw .sw{height:34px}
-.lut-sw .nm{font-size:8px;padding:2px 3px;color:var(--ink-2);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .progress{height:6px;background:var(--line-2);border-radius:3px;overflow:hidden;margin-top:14px}
 .progress i{display:block;height:100%;width:0;background:var(--amber);transition:width .1s}
 .seg{display:flex;border:1px solid var(--line-2);border-radius:6px;overflow:hidden}
