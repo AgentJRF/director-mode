@@ -97,25 +97,44 @@ export function stepToPose(s: MotionStep): Vec3 {
   return sphericalToPose({ r, theta, phi }, PIVOT);
 }
 
-export function applyMotionSpec(spec: MotionSpec, fidelity: number) {
+// Bézier control points for a natural arc from p0 → p1 that sweeps AROUND the product (PIVOT), rather
+// than a straight line. Tangents are ⟂ to the radius at each end (circular-arc feel, like the orbit
+// preset), with handle length from the angle subtended at the pivot. Shared by applyMotionSpec (sets
+// key tangents) and the review preview (samples the same curve) so they always agree.
+export function arcControls(p0: Vec3, p1: Vec3): { c1: Vec3; c2: Vec3 } {
+  const rA = new THREE.Vector3(...p0).sub(PIVOT);
+  const rB = new THREE.Vector3(...p1).sub(PIVOT);
+  const axis = new THREE.Vector3().crossVectors(rA, rB);
+  if (axis.lengthSq() < 1e-6) axis.set(0, 1, 0);   // colinear endpoints → fall back to a vertical bow
+  axis.normalize();
+  const ang = Math.max(rA.angleTo(rB), 0.05);
+  const Rm = (rA.length() + rB.length()) / 2;
+  const L = Rm * (4 / 3) * Math.tan(ang / 4);        // handle length for a ~circular arc
+  const tanA = new THREE.Vector3().crossVectors(axis, rA).normalize().multiplyScalar(L); // travel dir at start
+  const tanB = new THREE.Vector3().crossVectors(axis, rB).normalize().multiplyScalar(L); // travel dir at end
+  const c1 = new THREE.Vector3(...p0).add(tanA);
+  const c2 = new THREE.Vector3(...p1).sub(tanB);
+  return { c1: [c1.x, c1.y, c1.z], c2: [c2.x, c2.y, c2.z] };
+}
+
+export function applyMotionSpec(spec: MotionSpec) {
   const st = S(); const cam = st.active(); const tl = st.project.timeline;
   const t0 = tl.playhead; const t1 = Math.min(t0 + spec.duration, tl.duration);
   const ease = spec.ease ?? 'easeInOut';
   const p0 = stepToPose(spec.start), p1 = stepToPose(spec.end);
-  const piv = PIVOT.toArray() as Vec3;
+  const { c1, c2 } = arcControls(p0, p1);
   cam.keyframes = [];   // an AI match REPLACES the current move (like a preset)
-  cam.target = null;    // this baked move keys rotation directly (camera aims at the product)
+  cam.target = { type: 'point', point: PIVOT.toArray() as Vec3 }; // aim stays on the product through the arc
   cam.transform.position = p0;
-  const setKey = (ch: Channel, val: Vec3 | number, t: number, ez: Ease) => upsertKeyOn(cam, ch, val, t, 'aiVideo', ez);
-  // Two anchor keys per animated channel, then spread into `fidelity` editable carrier keys.
-  setKey('position', p0, t0, 'linear'); setKey('position', p1, t1, ease);
-  setKey('rotation', eulerFromLookAt(p0, piv), t0, 'linear'); setKey('rotation', eulerFromLookAt(p1, piv), t1, ease);
-  resampleChannel(cam, 'position', fidelity);
-  resampleChannel(cam, 'rotation', fidelity);
+  // Two position keys carrying Bézier tangents → a single smooth, natural arc (no per-frame keys).
+  const kA = upsertKeyOn(cam, 'position', p0, t0, 'aiVideo', 'linear');
+  const kB = upsertKeyOn(cam, 'position', p1, t1, 'aiVideo', ease);
+  kA.tangentOut = [c1[0] - p0[0], c1[1] - p0[1], c1[2] - p0[2]];
+  kB.tangentIn = [c2[0] - p1[0], c2[1] - p1[1], c2[2] - p1[2]];
   // Optics are constant across this gesture — set them statically (no needless keys).
   cam.optics.focalLength = spec.start.focal; cam.optics.aperture = spec.start.aperture; cam.optics.focusPoint = null;
   st.setPlayhead(t0); st.bump();
-  st.toast(`AI motion "${spec.gesture}" applied — ${fidelity} editable keys`);
+  st.toast(`AI motion "${spec.gesture}" applied`);
 }
 
 export function applyCurve(ease: Ease) {

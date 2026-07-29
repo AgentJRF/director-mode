@@ -3,7 +3,7 @@ import { S, PIVOT } from '../store';
 import MatchPreview, { MotionPreview } from '../three/MatchPreview';
 import { useRev } from './bits';
 import { evaluate, eulerFromLookAt, sphericalToPose, clamp } from '../lib/eval';
-import { fuseAB, applyMotionSpec, stepToPose, type MotionSpec, type MotionStep } from '../lib/presets';
+import { fuseAB, applyMotionSpec, stepToPose, arcControls, type MotionSpec, type MotionStep } from '../lib/presets';
 import { LUT_PRESETS, applyLutToCanvas } from '../lib/lut';
 import type { Ease, Vec3 } from '../types';
 
@@ -186,7 +186,6 @@ function AIVideoModal() {
   const [vid, setVid] = useState<{ url: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [est, setEst] = useState<MotionEstimate | null>(null);
-  const [fidelity, setFidelity] = useState(4);
 
   const onFile = (f: File | undefined) => {
     if (!f) return;
@@ -207,13 +206,14 @@ function AIVideoModal() {
   const back = () => setEst(null);
   const apply = () => {
     if (!est) return;
-    applyMotionSpec(est as MotionSpec, fidelity);
+    applyMotionSpec(est as MotionSpec);
     S().setViewMode('camera'); S().setModal(null);
   };
 
   if (est && vid) {
     const aspect = S().project.canvas.width / S().project.canvas.height;
     const from = stepToPose(est.start), to = stepToPose(est.end);
+    const { c1, c2 } = arcControls(from, to);
     return (
       <Shell title="AI review · Motion from video"
         footer={<><button className="tbtn" onClick={back}>← Back</button>
@@ -226,7 +226,7 @@ function AIVideoModal() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="sect-t" style={{ padding: 0, margin: '0 0 4px' }}>Matched move (preview)</div>
             <div style={{ width: '100%', aspectRatio: String(aspect), borderRadius: 6, overflow: 'hidden', border: '1px solid var(--line-2)' }}>
-              <MotionPreview from={from} to={to} focal={est.start.focal} aspect={aspect} duration={est.duration} />
+              <MotionPreview from={from} to={to} c1={c1} c2={c2} focal={est.start.focal} aspect={aspect} duration={est.duration} />
             </div>
           </div>
         </div>
@@ -234,10 +234,7 @@ function AIVideoModal() {
         <div className="row"><label>Confidence</label><ConfBar c={est.confidence} /></div>
         {est.mocked && <span className="badge proto">estimated (heuristic)</span>}
         <p className="hint" style={{ marginTop: 6 }}>{est.reasoning}</p>
-        <div className="row" style={{ marginTop: 8 }}><label>Fidelity ↔ editable</label>
-          <input className="amber" type="range" min={2} max={6} step={1} value={fidelity} onChange={e => setFidelity(+e.target.value)} />
-          <span className="val">{fidelity} keys</span></div>
-        <p className="hint">Outputs a few editable carrier keys (never one per frame) — adjust the count, then apply.</p>
+        <p className="hint">Baked as a smooth Bézier arc (2 editable keys) that keeps the product framed — natural crane feel, not a straight line.</p>
       </Shell>
     );
   }

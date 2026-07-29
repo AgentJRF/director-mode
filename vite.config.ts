@@ -147,14 +147,15 @@ interface MotionEstimate {
   gesture: string; duration: number; ease: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
   start: MotionStep; end: MotionStep; confidence: number; reasoning: string; mocked?: boolean;
 }
-// Coffee-machine reference (Coffee_Machine_Video.mp4): a descending crane with a gentle push-in —
-// opens high looking down, settles to a near eye-level hero framing; product stays centered (no orbit).
+// Coffee-machine reference (Coffee_Machine_Video.mp4): a FACE-ON reveal that opens up (tight → wide) —
+// starts close at a near eye-level hero framing, then cranes up and pulls back to a wider high-angle
+// view; camera stays straight-front (azimuth 0, no orbit).
 const COFFEE_REVEAL: MotionEstimate = {
-  gesture: 'crane-down + push-in', duration: 1.73, ease: 'easeInOut',
-  start: { az: 12, el: 42, dist: 3.0, focal: 50, aperture: 4 },
-  end: { az: 12, el: 6, dist: 2.1, focal: 50, aperture: 4 },
+  gesture: 'push-out + crane-up (tight → wide)', duration: 1.73, ease: 'easeInOut',
+  start: { az: 0, el: 6, dist: 2.1, focal: 50, aperture: 4 },
+  end: { az: 0, el: 42, dist: 3.0, focal: 50, aperture: 4 },
   confidence: 0.83,
-  reasoning: 'Descending crane with a gentle push-in: opens high looking down, settles to a near eye-level hero framing; the product stays centered (no orbit). ~1.7s, ease-in-out.',
+  reasoning: 'Face-on reveal that opens up: starts tight at a near eye-level hero framing, then cranes up and pulls back to a wider high-angle view; the product stays centered and straight-front (no orbit). ~1.7s, ease-in-out.',
   mocked: false,
 };
 // Matched by SUBSTRING of the uploaded file name (lowercased), same as the image demo overrides.
