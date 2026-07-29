@@ -47,8 +47,18 @@ const ORANGE_DETAIL: Estimate = {
   mocked: false,
   pose: { position: [-0.11, 3.27, 0.94], rotation: [-50.45, -8.45, 6.34], focal: 37, aperture: 1.4, focusPoint: [0.12, 1.3, -0.67] },
 };
+// Frontal macro detail (orange zip "lining" reference) — close, slightly high on the zip line, f/1.4.
+const ORANGE_ZIP_FRONT: Estimate = {
+  azimuth_deg: 7, elevation_deg: 59, distance_factor: 1.3, focal_mm: 50, aperture_f: 1.4, confidence: 0.88,
+  reasoning: 'Frontal macro on the zip line: close and slightly high, shallow depth (f/1.4) → strong bokeh on the handles/background, ~50mm.',
+  mocked: false,
+  pose: { position: [0.15, 3.06, 1.29], rotation: [-36.52, 7.6, -4.46], focal: 50, aperture: 1.4, focusPoint: [-0.11, 1.56, -0.71] },
+};
 // Matched by SUBSTRING of the uploaded file name (lowercased): e.g. "Gill-60L-duffel.jpg" → GILL_DUFFEL.
+// NB: order matters — `find` returns the FIRST matching key, so put specific keys before generic ones
+// ("orange-zip-lining" must hit `lining` → ORANGE_ZIP_FRONT, not the generic `orange`/`zip` top-down).
 const DEMO: Record<string, Estimate> = {
+  lining: ORANGE_ZIP_FRONT,
   gill: GILL_DUFFEL, duffel: GILL_DUFFEL, holdall: GILL_DUFFEL,
   orange: ORANGE_DETAIL, zip: ORANGE_DETAIL, detail: ORANGE_DETAIL, macro: ORANGE_DETAIL,
 };
