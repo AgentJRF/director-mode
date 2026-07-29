@@ -52,7 +52,7 @@ const ORANGE_ZIP_FRONT: Estimate = {
   azimuth_deg: 7, elevation_deg: 59, distance_factor: 1.3, focal_mm: 50, aperture_f: 1.4, confidence: 0.88,
   reasoning: 'Frontal macro on the zip line: close and slightly high, shallow depth (f/1.4) → strong bokeh on the handles/background, ~50mm.',
   mocked: false,
-  pose: { position: [0.15, 3.06, 1.29], rotation: [-36.52, 7.6, -4.46], focal: 50, aperture: 1.4, focusPoint: [-0.11, 1.56, -0.71] },
+  pose: { position: [0.15, 3.06, 1.29], rotation: [-36.52, 7.6, -4.46], focal: 50, aperture: 1.4, focusPoint: [0.01, 2.032, -0.02] },
 };
 // Matched by SUBSTRING of the uploaded file name (lowercased): e.g. "Gill-60L-duffel.jpg" → GILL_DUFFEL.
 // NB: order matters — `find` returns the FIRST matching key, so put specific keys before generic ones
