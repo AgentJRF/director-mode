@@ -91,9 +91,12 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 .row label{font-size:12px;color:var(--ink-2);white-space:nowrap}
 .val{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink)}
 /* editable numeric box (slider values, hand-typed) */
-.val-box{display:flex;align-items:center;gap:3px;justify-content:flex-end;min-width:60px}
+.val-box{display:flex;align-items:center;gap:3px;justify-content:flex-end;flex:0 0 auto}
+/* inspector sliders: let the range shrink so the value box always stays inside the 300px panel */
+.row input[type=range]{min-width:0}
 .val-fix{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
-.val-input{width:46px;background:var(--panel);border:1px solid var(--line-2);border-radius:4px;color:var(--ink);
+/* .val-box .val-input: needs higher specificity than `input[type=number]` (which forces width:72px) */
+.val-box .val-input{width:50px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line-2);border-radius:4px;color:var(--ink);
   font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:12px;text-align:right;padding:2px 4px;-moz-appearance:textfield}
 .val-input::-webkit-outer-spin-button,.val-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .val-input:hover{border-color:#3d444a}

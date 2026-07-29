@@ -52,7 +52,7 @@ function Slider({ label, value, min, max, step, unit, prefix, onChange, disabled
   return (
     <div className={'row' + (disabled ? ' locked' : '')}>
       <span className="row-lead">{ch ? <KeyDot ch={ch} value={value} disabled={disabled} /> : <span className="kf-spacer" />}<label>{label}</label></span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
         <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} disabled={disabled} />
         <span className="val-box">
           {prefix && <span className="val-fix">{prefix}</span>}
@@ -127,7 +127,7 @@ function CameraMoves({ cam }: { cam: Camera }) {
   useEffect(() => { if (last) applyPreset(last.preset, { duration: dur, amplitude: amp, ease: 'linear', dir: last.d ?? dir }); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [dur, amp, dir]);
   const sliderRow = (label: string, v: number, min: number, max: number, step: number, disp: string, on: (n: number) => void) => (
     <div className="row"><span className="row-lead"><span className="kf-spacer" /><label>{label}</label></span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
         <input type="range" min={min} max={max} step={step} value={v} onChange={e => on(parseFloat(e.target.value))} />
         <span className="val" style={{ minWidth: 44, textAlign: 'right' }}>{disp}</span>
       </div>
