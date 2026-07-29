@@ -3,46 +3,48 @@ import { useRev } from './bits';
 import type { Tool } from '../types';
 import type { ReactNode } from 'react';
 
-// Thin line icons in the Adobe Spectrum / Dimension toolbar style (currentColor, ~1.3 stroke).
-const SelectArrow = () => (
-  <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden>
-    <path d="M3 2 L3 13.2 L6.1 10.2 L8.3 14.8 L10.2 13.9 L8 9.4 L12.4 9.1 Z"
-      fill="currentColor" stroke="rgba(0,0,0,.5)" strokeWidth="0.6" strokeLinejoin="round" />
+// Adobe Spectrum 2 workflow icons (filled, currentColor) — inlined so the toolbar reads as Adobe-native.
+const IcSelect = () => (
+  <svg viewBox="0 0 20 20" width="17" height="17" fill="currentColor" aria-hidden>
+    <path d="m6.28125,18.54694c-.29199,0-.58887-.05762-.87646-.17676-.85547-.35547-1.38721-1.15137-1.38721-2.07812l-.00391-12.4707c-.00049-.92773.53223-1.72461,1.38965-2.08008.85498-.35352,1.79639-.16699,2.45312.48926l8.8916,8.91406c.65479.65527.84082,1.59473.48584,2.4502-.35547.85547-1.15186,1.3877-2.07861,1.3877h-4.07861c-.19629,0-.38965.08008-.52979.21973l-2.69092,2.68262c-.43555.43457-.99658.66211-1.57471.66211Zm-.00391-15.47852c-.1377,0-.24951.03809-.30029.05957-.10889.04492-.46338.22754-.46338.69336l.00391,12.4707c0,.46484.354.64746.4624.69238.10791.04492.48682.16699.81689-.16211l2.69141-2.68262c.42529-.42383.98926-.65723,1.58838-.65723h4.07861c.46484,0,.64795-.35449.69287-.46289s.16602-.4873-.16162-.81543L6.79492,3.2901c-.17432-.17383-.3623-.22168-.51758-.22168Z" />
   </svg>
 );
-// video camera (Camera / orbit)
-const CameraIcon = () => (
-  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round">
-    <rect x="1.5" y="4.7" width="9" height="6.6" rx="1.4" />
-    <path d="M10.5 7 L14.5 4.8 L14.5 11.2 L10.5 9 Z" />
+const IcCamera = () => (
+  <svg viewBox="0 0 20 20" width="17" height="17" fill="currentColor" aria-hidden>
+    <path d="m16.75,17H3.25c-1.24072,0-2.25-1.00977-2.25-2.25v-7.5c0-1.24023,1.00928-2.25,2.25-2.25h1.82275c.28613,0,.54297-.15918.6709-.41406l.1709-.3418c.38379-.76758,1.15479-1.24414,2.0127-1.24414h4.14551c.85791,0,1.62891.47656,2.0127,1.24414l.1709.3418c.12793.25488.38477.41406.6709.41406h1.82275c1.24072,0,2.25,1.00977,2.25,2.25v7.5c0,1.24023-1.00928,2.25-2.25,2.25ZM3.25,6.5c-.41357,0-.75.33691-.75.75v7.5c0,.41309.33643.75.75.75h13.5c.41357,0,.75-.33691.75-.75v-7.5c0-.41309-.33643-.75-.75-.75h-1.82275c-.85791,0-1.62891-.47656-2.0127-1.24414l-.1709-.3418c-.12793-.25488-.38477-.41406-.6709-.41406h-4.14551c-.28613,0-.54297.15918-.6709.41406l-.1709.3418c-.38379.76758-1.15479,1.24414-2.0127,1.24414h-1.82275Z" />
+    <path d="m10,14.5c-2.20557,0-4-1.79395-4-4s1.79443-4,4-4,4,1.79395,4,4-1.79443,4-4,4Zm0-6.5c-1.37842,0-2.5,1.12109-2.5,2.5s1.12158,2.5,2.5,2.5,2.5-1.12109,2.5-2.5-1.12158-2.5-2.5-2.5Z" />
   </svg>
 );
-// reticle (Target / aim)
-const TargetIcon = () => (
-  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.3">
-    <circle cx="8" cy="8" r="5" />
-    <circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none" />
-    <path d="M8 0.8 L8 3 M8 13 L8 15.2 M0.8 8 L3 8 M13 8 L15.2 8" strokeLinecap="round" />
+const IcTarget = () => (
+  <svg viewBox="0 0 20 20" width="17" height="17" fill="currentColor" aria-hidden>
+    <circle cx="10" cy="10" r="1.5" />
+    <path d="M10,18.75c-4.82471,0-8.75-3.9248-8.75-8.75S5.17529,1.25,10,1.25s8.75,3.9248,8.75,8.75-3.92529,8.75-8.75,8.75ZM10,2.75c-3.99756,0-7.25,3.25195-7.25,7.25s3.25244,7.25,7.25,7.25,7.25-3.25195,7.25-7.25-3.25244-7.25-7.25-7.25Z" />
+    <path d="M10,15c-2.75684,0-5-2.24316-5-5s2.24316-5,5-5,5,2.24316,5,5-2.24316,5-5,5ZM10,6.5c-1.92969,0-3.5,1.57031-3.5,3.5s1.57031,3.5,3.5,3.5,3.5-1.57031,3.5-3.5-1.57031-3.5-3.5-3.5Z" />
   </svg>
 );
-// start keyframe → arrow to the end (Interpolate A→B)
-const InterpIcon = () => (
-  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="2.9" cy="8" r="1.9" fill="currentColor" stroke="none" />
-    <line x1="5.2" y1="8" x2="12.4" y2="8" />
-    <path d="M9.4 5 L13.2 8 L9.4 11" />
+const IcEyedropper = () => (
+  <svg viewBox="0 0 20 20" width="17" height="17" fill="currentColor" aria-hidden>
+    <path d="m18.27051,2.16211c-.56152-.66895-1.33203-1.05762-2.16895-1.09473-.90137-.0127-1.81348.33496-2.50391,1.02539l-1.29883,1.29102c-.95312-.50098-2.16309-.35156-2.96387.44922l-.38477.38477c-.91919.91821-.96948,2.3689-.17383,3.3595l-3.8623,3.86316c-1.66602,1.66504-3.13379,3.13281-3.15918,3.15918-1.00488,1.00488-1.00488,2.64062,0,3.64551.50293.50293,1.16309.75391,1.82227.75391.66016,0,1.32031-.25098,1.82324-.75391l7.02026-7.01953c.46411.38159,1.02759.58398,1.59692.58398.64648,0,1.29395-.24609,1.78613-.73828l.38477-.38477c.79883-.79883.9502-2.00391.45312-2.95605l1.20801-1.1875.00488-.00488c1.28906-1.28906,1.46387-3.12988.41602-4.37598Zm-13.93066,15.02246c-.41895.41895-1.10352.4209-1.52441,0-.41992-.41992-.41992-1.10449.00391-1.52734.04883-.05078,1.50488-1.50586,3.15527-3.15625l3.84277-3.84375,1.52539,1.52539-7.00293,7.00195Zm12.45703-11.70996l-1.66406,1.63477c-.14258.14062-.22363.33203-.22461.53223-.00098.19922.07812.3916.21973.5332.40039.40039.40039,1.05078,0,1.45117l-.38477.38477c-.40039.40039-1.05078.40039-1.45117,0l-3.28125-3.28125c-.40039-.40039-.40039-1.05078,0-1.45117l.38477-.38477c.2002-.2002.46289-.2998.72559-.2998s.52539.09961.72559.2998c.29199.29297.7666.29297,1.05859.00195l1.75098-1.74023c.39453-.39551.88867-.61035,1.37988-.58887.41797.01855.79297.21191,1.08594.56055.63379.75391.27539,1.74414-.3252,2.34766Z" />
+  </svg>
+);
+// Interpolate A→B — filled to match the Spectrum icons: start node + block arrow.
+const IcInterp = () => (
+  <svg viewBox="0 0 20 20" width="17" height="17" fill="currentColor" aria-hidden>
+    <circle cx="3.4" cy="10" r="2.1" />
+    <path d="M6.5 8.9 H12.5 V6.4 L17.2 10 L12.5 13.6 V11.1 H6.5 Z" />
   </svg>
 );
 
-// Primary nav/edit tools (above the separator); target moves below it (see render).
+// Primary nav/edit tools (above the separator).
 const TOP_TOOLS: { id: Tool; icon: ReactNode; title: string }[] = [
-  { id: 'select', icon: <SelectArrow />, title: 'Select (V)' },
-  { id: 'camera', icon: <CameraIcon />, title: 'Camera / orbit (C)' },
+  { id: 'select', icon: <IcSelect />, title: 'Select (V)' },
+  { id: 'camera', icon: <IcCamera />, title: 'Camera / orbit (C)' },
 ];
 
 export default function Toolbar() {
   useRev();
   const tool = S().ui.tool;
+  const picking = S().ui.focusPicking;
   return (
     <div id="toolbar">
       {TOP_TOOLS.map(t => (
@@ -51,9 +53,11 @@ export default function Toolbar() {
       ))}
       <div className="tool-sep" />
       <button className={'tool' + (tool === 'target' ? ' active' : '')} title="Target (T)"
-        onClick={() => S().setTool('target')}><TargetIcon /></button>
+        onClick={() => S().setTool('target')}><IcTarget /></button>
+      <button className={'tool' + (picking ? ' active' : '')} title="Pick focus point"
+        onClick={() => S().setFocusPicking(!picking)}><IcEyedropper /></button>
       <button className={'tool' + (S().ui.interp ? ' active' : '')} title="Interpolate — click camera A then B (A→B)"
-        onClick={() => (S().ui.interp ? S().cancelInterp() : S().startInterp())}><InterpIcon /></button>
+        onClick={() => (S().ui.interp ? S().cancelInterp() : S().startInterp())}><IcInterp /></button>
     </div>
   );
 }

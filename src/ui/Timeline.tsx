@@ -51,9 +51,7 @@ export default function Timeline() {
     { label: 'Point of Interest', ch: 'poi', lock: c.target?.type === 'object' },
     { label: 'Position', ch: 'position' },
     { label: 'Orientation', ch: 'rotation', lock: !!c.target },
-    { label: 'Focal length', ch: 'focalLength' },
-    { label: 'Aperture', ch: 'aperture' },
-    // Motion blur is a global On/Off + non-animatable shutter (not a keyframable channel).
+    // Focal & aperture are static per shot (not keyframable); motion blur is a global On/Off — none shown here.
   ]);
 
   let yCur = TOP_H + 8;

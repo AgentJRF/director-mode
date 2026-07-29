@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { Suspense, useRef } from 'react';
 import * as THREE from 'three';
-import { PerspectiveCamera, OrbitControls } from '@react-three/drei';
+import { PerspectiveCamera, OrbitControls, Grid } from '@react-three/drei';
 import { EffectComposer, DepthOfField } from '@react-three/postprocessing';
 import CameraController from './CameraController';
 import SceneGizmos from './SceneGizmos';
@@ -41,7 +41,11 @@ function Floor() {
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow userData={{ focusPickable: true }}>
         <circleGeometry args={[26, 64]} /><meshStandardMaterial color={0x20252b} roughness={0.8} metalness={0.1} />
       </mesh>
-      <gridHelper args={[40, 40, 0x1c2126, 0x141719]} position={[0, 0.001, 0]} visible={showGrid} />
+      {/* Dimension-style editor grid — light lines fading with distance (Scene view only). */}
+      {showGrid && <Grid position={[0, 0.002, 0]} infiniteGrid followCamera={false}
+        cellSize={1} cellThickness={0.6} cellColor="#3f3f3f"
+        sectionSize={5} sectionThickness={1} sectionColor="#5b6470"
+        fadeDistance={34} fadeStrength={1.4} />}
     </group>
   );
 }
