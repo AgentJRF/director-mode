@@ -1,5 +1,7 @@
 # Director mode — prototype
 
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/AgentJRF/director-mode)
+
 Prototype web interactif d'un espace d'animation et de composition de caméra pour un
 logiciel 3D (concept **Adobe Substance 3D Stager**). On place et anime des caméras autour
 d'un produit, via plusieurs façons de créer (manuel, presets, interpolation A→B, IA mockée),
@@ -14,20 +16,24 @@ Cahier des charges (brief) :
 - **zustand** (état central unique)
 - Asset produit : glTF Stager (sac « barrel bag ») chargé depuis `public/asset/`
 
-## Démarrer (sur n'importe quelle machine)
-Prérequis : **Node.js 20+** (installé ici via `winget install OpenJS.NodeJS.LTS`).
+## Démarrer / démo
+Prérequis : **Node.js 20+**. L'asset produit et la police Adobe Clean sont **dans le dépôt**
+(privé) — rien à récupérer, ça tourne directement.
 
 ```bash
 npm install
-powershell -ExecutionPolicy Bypass -File scripts/fetch-asset.ps1   # récupère l'asset depuis OneDrive
-npm run dev        # http://127.0.0.1:5173
+npm run dev        # http://localhost:5173
 ```
 
-> L'asset produit (© Adobe Inc.) est **hors du dépôt** ; `fetch-asset.ps1` le copie depuis
-> OneDrive vers `public/asset/`. Sans OneDrive sur la machine, place l'asset à la main
-> (`studio_packshot.gltf` + `.bin` + `studio_packshot_images/`).
+Puis ouvre **http://localhost:5173**. Sur Windows, si `node` n'est pas dans le PATH du terminal,
+double-clique **`start-dev.cmd`** (il ajoute Node au PATH et lance le serveur).
 
-Build de production : `npm run build` puis `npm run preview`.
+> ⚠️ Pour une démo, lance **`npm run dev`** (pas `build`/`preview`) : les fonctions **IA**
+> (match caméra image/vidéo) sont des endpoints du **serveur de dev** Vite — elles n'existent pas
+> dans un build statique.
+
+**Démo sans rien installer** : ouvre le lien **StackBlitz** en haut du README (il lance
+`npm run dev` dans le navigateur). Dépôt privé ⇒ compte GitHub autorisé requis.
 
 ### IA — match caméra depuis une image (optionnel)
 « ✦ AI image » (Topbar) : on **upload une photo** et l'IA estime l'angle, la focale et l'ouverture
@@ -48,11 +54,10 @@ Toute modif de `vite.config.ts`/`.env` nécessite un **redémarrage** du serveur
 ## Structure
 ```
 src/
-  types.ts                 modèle de données (Keyframe, Camera, LUT, Project…)
+  types.ts                 modèle de données (Keyframe, Camera, Project…)
   store.ts                 store zustand — SOURCE DE VÉRITÉ unique (+ actions)
   lib/eval.ts              évaluation des clés à l'instant t, easing, look-at, spherical
-  lib/presets.ts           presets trajectoire/courbe, interpolation A→B, resample IA
-  lib/lut.ts               LUT presets + application du grade au viewport
+  lib/presets.ts           presets trajectoire/courbe, interpolation A→B, match mouvement IA
   three/
     Scene.tsx              Canvas r3f, lumières, sol, DoF (mode Caméra), 2 caméras
     Product.tsx            useGLTF du packshot + normalisation/placement
@@ -79,18 +84,20 @@ public/asset/              studio_packshot.gltf + .bin (45 Mo) + textures PBR
   caméra (drei `PivotControls`). Toggle repère **World / Objet** (raccourci `R`, défaut Objet).
 
 ## Raccourcis
-`Espace` lecture/pause · `V/C/T/O` outils · `G` générateurs · `R` repère gizmo (World/Objet) ·
+`Espace` lecture/pause · `V/C/T` outils (Select/Caméra/Target) · `R` repère gizmo (World/Objet) ·
 `Suppr` supprimer la clé sélectionnée.
 
 ## État & pistes (voir git log pour le détail)
 Fait : socle scène + caméra, timeline/clés, spline éditable, presets, interpolation A→B,
-target/look-at, IA mock (image/vidéo) + revue, LUT, export (WebM/PNG), double vue + gizmo.
+target/look-at, IA mock (match caméra image + mouvement vidéo) + revue, export (WebM/PNG),
+double vue + gizmo, **refonte UI Adobe Spectrum / Dimension** (branche `design`, polices Adobe
+Clean, icônes Spectrum 2, grille infinie, vue Caméra en aperçu pur).
 Pistes : cuts multi-caméras à l'export, exposer les 3 caméras du glTF comme poses de départ,
-raccourci Caméra/Scène, icônes Spectrum officielles.
+mode colorimétrie/post à part entière (l'ancien LUT a été retiré du scope caméra).
 
 ## Note de portabilité
 Le projet est volontairement **hors OneDrive** (pour ne pas synchroniser `node_modules`).
-Utiliser **Git** pour passer d'une machine à l'autre : cloner, puis `npm install` +
-`scripts/fetch-asset.ps1`. L'asset (© Adobe Inc.) est **hors du dépôt** (voir `.gitignore`) et
-récupéré depuis OneDrive — le repo ne contient pas d'IP Adobe et peut donc vivre sur un compte
-Git perso **privé**.
+Passer d'une machine à l'autre via **Git** : cloner + `npm install` + `npm run dev`.
+L'asset produit et la police (© Adobe Inc.) sont **commités dans ce dépôt PRIVÉ** (choix assumé
+pour que clone / StackBlitz / Codespaces marchent directement) — **à garder privé** (IP Adobe).
+`scripts/fetch-asset.ps1` / `fetch-fonts.ps1` restent dispo en fallback (récup depuis OneDrive).
