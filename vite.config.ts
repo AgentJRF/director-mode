@@ -137,6 +137,41 @@ function heuristic(body: Record<string, unknown>): Estimate {
   };
 }
 
+// ---- AI motion-match (video) — Wizard-of-Oz baked camera MOVES -------------
+// POST /api/match-motion { name } → a MotionEstimate: a global camera gesture expressed as a
+// start→end framing (spherical az/el/dist + focal/aperture) the client turns into a few editable
+// carrier keyframes. Baked per reference clip by file-name substring (no real video analysis / key
+// needed) — the video counterpart of the image /api/match-camera demo overrides.
+interface MotionStep { az: number; el: number; dist: number; focal: number; aperture: number }
+interface MotionEstimate {
+  gesture: string; duration: number; ease: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
+  start: MotionStep; end: MotionStep; confidence: number; reasoning: string; mocked?: boolean;
+}
+// Coffee-machine reference (Coffee_Machine_Video.mp4): a descending crane with a gentle push-in —
+// opens high looking down, settles to a near eye-level hero framing; product stays centered (no orbit).
+const COFFEE_REVEAL: MotionEstimate = {
+  gesture: 'crane-down + push-in', duration: 1.73, ease: 'easeInOut',
+  start: { az: 12, el: 42, dist: 3.0, focal: 50, aperture: 4 },
+  end: { az: 12, el: 6, dist: 2.1, focal: 50, aperture: 4 },
+  confidence: 0.83,
+  reasoning: 'Descending crane with a gentle push-in: opens high looking down, settles to a near eye-level hero framing; the product stays centered (no orbit). ~1.7s, ease-in-out.',
+  mocked: false,
+};
+// Matched by SUBSTRING of the uploaded file name (lowercased), same as the image demo overrides.
+const MOTION_DEMO: Record<string, MotionEstimate> = {
+  coffee: COFFEE_REVEAL, machine: COFFEE_REVEAL, packshot: COFFEE_REVEAL,
+};
+function motionHeuristic(): MotionEstimate {
+  return {
+    gesture: 'orbital reveal', duration: 3, ease: 'easeInOut',
+    start: { az: -35, el: 18, dist: 3.0, focal: 50, aperture: 4 },
+    end: { az: 35, el: 12, dist: 2.6, focal: 50, aperture: 4 },
+    confidence: 0.4,
+    reasoning: 'Heuristic motion — no baked match for this clip. Defaulting to a gentle orbital reveal (Wizard-of-Oz: baked camera moves are keyed by file name).',
+    mocked: true,
+  };
+}
+
 function aiPlugin(env: Record<string, string>): Plugin {
   const KEY = env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || '';
   const MODEL = env.AI_MODEL || 'claude-sonnet-5';
@@ -159,6 +194,21 @@ function aiPlugin(env: Record<string, string>): Plugin {
         } catch (e) {
           // Never hard-fail the UI: fall back to a heuristic and report the error alongside it.
           send(200, { ...heuristic({}), reasoning: 'AI error — heuristic fallback: ' + String((e as Error)?.message || e).slice(0, 160), mocked: true });
+        }
+      });
+      // Video → camera MOVE (Wizard-of-Oz baked, keyed by file name).
+      server.middlewares.use('/api/match-motion', async (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return; }
+        const send = (code: number, obj: unknown) => { res.statusCode = code; res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(obj)); };
+        try {
+          const chunks: Buffer[] = [];
+          for await (const c of req) chunks.push(c as Buffer);
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as Record<string, unknown>;
+          const name = String(body.name || '').toLowerCase();
+          const key = Object.keys(MOTION_DEMO).find(k => name.includes(k));
+          send(200, (key && MOTION_DEMO[key]) ?? motionHeuristic());
+        } catch (e) {
+          send(200, { ...motionHeuristic(), reasoning: 'Motion match error — heuristic fallback: ' + String((e as Error)?.message || e).slice(0, 160) });
         }
       });
     },

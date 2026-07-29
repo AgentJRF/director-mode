@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { S, PIVOT } from '../store';
-import MatchPreview from '../three/MatchPreview';
-import { useRev, grad } from './bits';
+import MatchPreview, { MotionPreview } from '../three/MatchPreview';
+import { useRev } from './bits';
 import { evaluate, eulerFromLookAt, sphericalToPose, clamp } from '../lib/eval';
-import { applyPreset, resampleChannel, fuseAB } from '../lib/presets';
+import { fuseAB, applyMotionSpec, stepToPose, type MotionSpec, type MotionStep } from '../lib/presets';
 import { LUT_PRESETS, applyLutToCanvas } from '../lib/lut';
-import type { Vec3 } from '../types';
+import type { Ease, Vec3 } from '../types';
 
 function Shell({ title, children, footer }: { title: string; children: React.ReactNode; footer: React.ReactNode }) {
   return (
@@ -23,13 +23,6 @@ function Shell({ title, children, footer }: { title: string; children: React.Rea
 type ExactPose = { position: Vec3; rotation: Vec3; focal: number; aperture: number; focusPoint: Vec3 | null };
 type Estimate = { azimuth_deg: number; elevation_deg: number; distance_factor: number; focal_mm: number; aperture_f: number; confidence: number; reasoning: string; mocked?: boolean; pose?: ExactPose };
 type MatchForm = { azimuth: number; elevation: number; distance: number; focal: number; aperture: number };
-
-const AI_VIDEOS = [
-  { name: 'Orbital reveal', gesture: 'orbit', thumb: grad('#243b55', '#141e30'), params: { duration: 4, amplitude: 0.9, ease: 'easeInOut' as const }, confidence: 0.82 },
-  { name: 'Dramatic push-in', gesture: 'dolly', thumb: grad('#3a2e2a', '#171310'), params: { duration: 3, amplitude: 1.1, ease: 'easeIn' as const }, confidence: 0.86 },
-  { name: 'Vertigo / dolly-zoom', gesture: 'dollyZoom', thumb: grad('#2b3a2e', '#12160f'), params: { duration: 3.5, amplitude: 0.8, ease: 'easeInOut' as const }, confidence: 0.71 },
-  { name: 'Sweeping pan', gesture: 'pan', thumb: grad('#2e2a3a', '#13111a'), params: { duration: 2.5, amplitude: 1.2, ease: 'easeOut' as const }, confidence: 0.79 },
-];
 
 const ConfBar = ({ c }: { c: number }) => (
   <span className="conf" style={{ flex: 1 }}>
@@ -186,45 +179,79 @@ function AIImageModal() {
   );
 }
 
+// Motion estimate returned by /api/match-motion (baked Wizard-of-Oz move, or heuristic fallback).
+type MotionEstimate = { gesture: string; duration: number; ease: Ease; start: MotionStep; end: MotionStep; confidence: number; reasoning: string; mocked?: boolean };
+
 function AIVideoModal() {
-  const [sel, setSel] = useState<number | null>(null);
-  const [review, setReview] = useState(false);
-  const [fidelity, setFidelity] = useState(3);
-  const ref = sel != null ? AI_VIDEOS[sel] : null;
-  if (review && ref) {
+  const [vid, setVid] = useState<{ url: string; name: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [est, setEst] = useState<MotionEstimate | null>(null);
+  const [fidelity, setFidelity] = useState(4);
+
+  const onFile = (f: File | undefined) => {
+    if (!f) return;
+    setVid({ url: URL.createObjectURL(f), name: f.name });
+    setEst(null);
+  };
+
+  const analyze = async () => {
+    if (!vid) { S().toast('Upload a video first'); return; }
+    setBusy(true);
+    try {
+      const r = await fetch('/api/match-motion', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: vid.name }) });
+      setEst(await r.json() as MotionEstimate);
+    } catch { S().toast('AI request failed'); }
+    setBusy(false);
+  };
+
+  const back = () => setEst(null);
+  const apply = () => {
+    if (!est) return;
+    applyMotionSpec(est as MotionSpec, fidelity);
+    S().setViewMode('camera'); S().setModal(null);
+  };
+
+  if (est && vid) {
+    const aspect = S().project.canvas.width / S().project.canvas.height;
+    const from = stepToPose(est.start), to = stepToPose(est.end);
     return (
-      <Shell title="AI review · Animation"
-        footer={<><button className="tbtn" onClick={() => setReview(false)}>← Back</button>
-          <button className="tbtn primary" onClick={() => {
-            const st = S(); const cam = st.active(); cam.keyframes = [];
-            applyPreset(ref.gesture, { ...ref.params });
-            resampleChannel(cam, 'position', fidelity);
-            cam.keyframes.forEach(k => (k.source = 'aiVideo'));
-            st.setModal(null); st.toast('AI animation applied — ' + fidelity + ' editable keys'); st.bump();
-          }}>Apply animation</button></>}>
-        <div className="row"><label>Detected gesture</label><span className="val">{ref.gesture}</span></div>
-        <div className="row"><label>Confidence</label><ConfBar c={ref.confidence} /></div>
-        <div className="row"><label>Keys generated</label><span className="val">{fidelity}</span></div>
-        <p className="hint">Result = editable motion, same as an applied preset. Adjust then apply.</p>
+      <Shell title="AI review · Motion from video"
+        footer={<><button className="tbtn" onClick={back}>← Back</button>
+          <button className="tbtn primary" onClick={apply}>Apply animation</button></>}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="sect-t" style={{ padding: 0, margin: '0 0 4px' }}>Reference clip</div>
+            <video src={vid.url} autoPlay muted loop playsInline style={{ width: '100%', aspectRatio: String(aspect), objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line-2)', background: '#000' }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="sect-t" style={{ padding: 0, margin: '0 0 4px' }}>Matched move (preview)</div>
+            <div style={{ width: '100%', aspectRatio: String(aspect), borderRadius: 6, overflow: 'hidden', border: '1px solid var(--line-2)' }}>
+              <MotionPreview from={from} to={to} focal={est.start.focal} aspect={aspect} duration={est.duration} />
+            </div>
+          </div>
+        </div>
+        <div className="row" style={{ marginTop: 8 }}><label>Detected gesture</label><span className="val">{est.gesture}</span></div>
+        <div className="row"><label>Confidence</label><ConfBar c={est.confidence} /></div>
+        {est.mocked && <span className="badge proto">estimated (heuristic)</span>}
+        <p className="hint" style={{ marginTop: 6 }}>{est.reasoning}</p>
+        <div className="row" style={{ marginTop: 8 }}><label>Fidelity ↔ editable</label>
+          <input className="amber" type="range" min={2} max={6} step={1} value={fidelity} onChange={e => setFidelity(+e.target.value)} />
+          <span className="val">{fidelity} keys</span></div>
+        <p className="hint">Outputs a few editable carrier keys (never one per frame) — adjust the count, then apply.</p>
       </Shell>
     );
   }
+
   return (
     <Shell title="AI · Animation from video"
       footer={<><button className="tbtn" onClick={() => S().setModal(null)}>Cancel</button>
-        <button className="tbtn primary" onClick={() => { if (sel == null) { S().toast('Pick a video'); return; } setReview(true); }}>Analyze</button></>}>
-      <p className="hint" style={{ marginTop: 0 }}>AI — animation from a video (mocked). Infers a global gesture → preset + params. Outputs few carrier keys (never one per frame).</p>
-      <div className="ref-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-        {AI_VIDEOS.map((r, i) => (
-          <div key={i} className={'ref' + (sel === i ? ' sel' : '')} onClick={() => setSel(i)}>
-            <div className="thumb" style={{ background: r.thumb }} /><div className="cap">{r.name} · {r.gesture}</div>
-          </div>
-        ))}
-      </div>
-      <div className="row" style={{ marginTop: 12 }}><label>Fidelity ↔ editable</label>
-        <input className="amber" type="range" min={2} max={6} step={1} value={fidelity} onChange={e => setFidelity(+e.target.value)} />
-        <span className="val">{fidelity} keys</span></div>
-      <label className="checkline"><FileStub kind="video" /></label>
+        <button className="tbtn primary" onClick={analyze}>{busy ? 'Analyzing…' : 'Analyze'}</button></>}>
+      <p className="hint" style={{ marginTop: 0 }}>Upload a reference clip — the AI infers the global camera gesture and recreates it as a few editable keyframes on the active camera (product-agnostic: the move is retargeted onto your scene).</p>
+      <label className="ai-drop">
+        {vid ? <video src={vid.url} autoPlay muted loop playsInline style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 6 }} />
+          : <span style={{ color: 'var(--ink-2)' }}>⬆ Click to upload a video (MP4 / WebM / MOV)</span>}
+        <input type="file" accept="video/*" style={{ display: 'none' }} onChange={e => onFile(e.target.files?.[0])} />
+      </label>
     </Shell>
   );
 }

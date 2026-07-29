@@ -83,6 +83,41 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
   st.toast(`Preset "${kind}" applied — ${n} editable keys`);
 }
 
+// --- AI motion match (video) ------------------------------------------------
+// A global camera gesture as a start→end framing (spherical az/el/dist + focal/aperture), returned by
+// /api/match-motion and turned here into a few EDITABLE carrier keyframes (never one per frame).
+export interface MotionStep { az: number; el: number; dist: number; focal: number; aperture: number }
+export interface MotionSpec { gesture: string; duration: number; ease: Ease; start: MotionStep; end: MotionStep }
+
+// Same spherical mapping as AIImageModal.applyForm / MatchPreview: distance is a ×2 factor, az/el degrees.
+export function stepToPose(s: MotionStep): Vec3 {
+  const r = clamp(s.dist * 2, 1.6, 14);
+  const theta = s.az * Math.PI / 180;
+  const phi = clamp((90 - s.el) * Math.PI / 180, 0.12, Math.PI - 0.12);
+  return sphericalToPose({ r, theta, phi }, PIVOT);
+}
+
+export function applyMotionSpec(spec: MotionSpec, fidelity: number) {
+  const st = S(); const cam = st.active(); const tl = st.project.timeline;
+  const t0 = tl.playhead; const t1 = Math.min(t0 + spec.duration, tl.duration);
+  const ease = spec.ease ?? 'easeInOut';
+  const p0 = stepToPose(spec.start), p1 = stepToPose(spec.end);
+  const piv = PIVOT.toArray() as Vec3;
+  cam.keyframes = [];   // an AI match REPLACES the current move (like a preset)
+  cam.target = null;    // this baked move keys rotation directly (camera aims at the product)
+  cam.transform.position = p0;
+  const setKey = (ch: Channel, val: Vec3 | number, t: number, ez: Ease) => upsertKeyOn(cam, ch, val, t, 'aiVideo', ez);
+  // Two anchor keys per animated channel, then spread into `fidelity` editable carrier keys.
+  setKey('position', p0, t0, 'linear'); setKey('position', p1, t1, ease);
+  setKey('rotation', eulerFromLookAt(p0, piv), t0, 'linear'); setKey('rotation', eulerFromLookAt(p1, piv), t1, ease);
+  resampleChannel(cam, 'position', fidelity);
+  resampleChannel(cam, 'rotation', fidelity);
+  // Optics are constant across this gesture — set them statically (no needless keys).
+  cam.optics.focalLength = spec.start.focal; cam.optics.aperture = spec.start.aperture; cam.optics.focusPoint = null;
+  st.setPlayhead(t0); st.bump();
+  st.toast(`AI motion "${spec.gesture}" applied — ${fidelity} editable keys`);
+}
+
 export function applyCurve(ease: Ease) {
   const cam = S().active();
   cam.keyframes.forEach(k => { const first = keysOf(cam, k.channel)[0]; if (k !== first) k.ease = ease; });
