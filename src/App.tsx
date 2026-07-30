@@ -71,6 +71,8 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
       const st = S();
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); if (e.shiftKey) st.redo(); else st.undo(); return; }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); st.redo(); return; }
       if (e.key === 'Escape' && st.ui.interp) { st.cancelInterp(); return; }
       if (e.key === ' ') { e.preventDefault(); const tl = st.project.timeline; if (tl.playhead >= tl.duration) st.setPlayhead(0); st.setPlaying(!tl.playing); }
       const map: Record<string, Tool> = { v: 'select', c: 'camera', t: 'target' };

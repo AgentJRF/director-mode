@@ -55,3 +55,16 @@ export const IcEye = ({ off, size }: IconProps & { off: boolean }) => off ? (
 export const IcInterp = ({ size }: IconProps) => (
   <Svg size={size}><circle cx="3.4" cy="10" r="2.1" /><path d="M6.5 8.9 H12.5 V6.4 L17.2 10 L12.5 13.6 V11.1 H6.5 Z" /></Svg>
 );
+// Undo / Redo — stroked curved arrows (not filled) for clarity.
+export const IcUndo = ({ size = 16 }: IconProps) => (
+  <svg viewBox="0 0 20 20" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M5 9 H12 a3.6 3.6 0 1 1 -3.6 3.6" />
+    <path d="M8 5.6 L4.6 9 L8 12.4" />
+  </svg>
+);
+export const IcRedo = ({ size = 16 }: IconProps) => (
+  <svg viewBox="0 0 20 20" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M15 9 H8 a3.6 3.6 0 1 0 3.6 3.6" />
+    <path d="M12 5.6 L15.4 9 L12 12.4" />
+  </svg>
+);

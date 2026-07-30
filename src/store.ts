@@ -58,6 +58,11 @@ interface StoreState {
   ui: UI;
   rev: number;
   bump: () => void;
+  // undo / redo (project-state history)
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
   // selectors as helpers
   active: () => Camera;
   // actions
@@ -120,13 +125,59 @@ export const useStore = create<StoreState>((set, get) => {
     timeline: { duration: 5, playhead: 0, playing: false },
     canvas: { width: 1920, height: 1080 },
   };
-  const bump = () => set(s => ({ rev: s.rev + 1 }));
+  // --- Undo/redo: snapshot the `project` at settle points. Rapid changes (a drag = many bumps)
+  // coalesce into ONE step via a short debounce; discrete actions each become a step. ---
+  let past: Project[] = [];
+  let future: Project[] = [];
+  let committed: Project = structuredClone(project); // last checkpoint (a clone, never the live project)
+  let restoring = false;
+  let commitTimer: ReturnType<typeof setTimeout> | null = null;
+  // Document signature ignoring transient view state (playhead/playing) so scrubbing/playback don't
+  // create undo steps.
+  const docSig = (p: Project) => JSON.stringify({ ...p, timeline: { duration: p.timeline.duration } });
+  const commitNow = () => {
+    if (restoring) return;
+    const cur = get().project;
+    if (docSig(cur) === docSig(committed)) return; // no document change
+    past.push(committed); if (past.length > 60) past.shift();
+    future = [];
+    committed = structuredClone(cur);
+    set(s => ({ rev: s.rev + 1 })); // refresh Undo/Redo button state (no reschedule)
+  };
+  const scheduleCommit = () => { if (restoring) return; if (commitTimer) clearTimeout(commitTimer); commitTimer = setTimeout(commitNow, 300); };
+  const bump = () => { set(s => ({ rev: s.rev + 1 })); scheduleCommit(); };
+  const restore = (proj: Project) => {
+    restoring = true;
+    const ph = get().project.timeline.playhead;                 // keep the current playhead across undo/redo
+    committed = proj;
+    const clone = structuredClone(proj);
+    clone.timeline.playhead = Math.min(ph, clone.timeline.duration); clone.timeline.playing = false;
+    set({ project: clone });
+    get().ui.selectedKeyIds = []; get().ui.interp = null; get().ui.targetSelected = false;
+    restoring = false;
+    set(s => ({ rev: s.rev + 1 }));
+  };
   const active = () => { const p = get().project; return p.cameras.find(c => c.id === p.activeCameraId) ?? p.cameras[0] ?? FALLBACK_CAM; };
 
   return {
     project, rev: 0,
     ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, targetSelected: false, multiview: false, split: false, motionBlur: false, splineViz: 'none', hidden: {}, interp: null },
     bump, active,
+    undo: () => {
+      if (commitTimer) { clearTimeout(commitTimer); commitTimer = null; }
+      commitNow();                       // flush any pending edit into history first
+      if (!past.length) return;
+      future.push(committed);
+      restore(past.pop()!);
+    },
+    redo: () => {
+      if (commitTimer) { clearTimeout(commitTimer); commitTimer = null; }
+      if (!future.length) return;
+      past.push(committed);
+      restore(future.pop()!);
+    },
+    canUndo: () => past.length > 0,
+    canRedo: () => future.length > 0,
     setTool: t => { get().ui.tool = t; bump(); },
     toast: m => { get().ui.toast = m; bump(); setTimeout(() => { if (get().ui.toast === m) { get().ui.toast = ''; bump(); } }, 2600); },
     selectCamera: id => { get().project.activeCameraId = id; get().ui.selectedKeyIds = []; get().ui.targetSelected = false; bump(); },
