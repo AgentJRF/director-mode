@@ -63,7 +63,7 @@ export default function Outliner() {
           const active = c.id === proj.activeCameraId;
           return (
             <div key={c.id} className={'ol-row' + (active ? ' sel' : '')} onClick={() => st.selectCamera(c.id)}>
-              <span className="ol-ic"><IcCamera size={14} /></span>
+              <span className="ol-ic" style={{ color: c.color }}><IcCamera size={14} /></span>
               <span className="nm">{c.name}</span>
               {active && <span className={'ol-dot' + (st.ui.viewMode === 'scene' ? ' scene' : '')}
                 title={st.ui.viewMode === 'camera' ? 'Camera POV — click for Scene view' : 'Scene view — click for Camera POV'}

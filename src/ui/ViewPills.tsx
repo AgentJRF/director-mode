@@ -28,18 +28,19 @@ export default function ViewPills() {
       </div>
       {ui.viewMode === 'scene' && (
         <div className="seg" style={{ background: 'rgba(0,0,0,.5)' }}>
+          <button className={ui.multiview ? 'sel' : ''} onClick={() => S().setMultiview(!ui.multiview)}
+            title="Quad view: Perspective + Top + Front + Side (4)">⊞ Quad</button>
+        </div>
+      )}
+      {/* Gizmo space is NOT a view mode → set apart from the view toggles with a gap. */}
+      {ui.viewMode === 'scene' && (
+        <div className="seg" style={{ background: 'rgba(0,0,0,.5)', marginLeft: 22 }}>
           <button onClick={() => S().setGizmoSpace(world ? 'local' : 'world')}
-            title={world ? 'Gizmo space: World — click for Object (R)' : 'Gizmo space: Object — click for World (R)'}
+            title={world ? 'Gizmo orientation: World — click for Object (R)' : 'Gizmo orientation: Object — click for World (R)'}
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {world ? <GlobeIcon /> : <CubeIcon />}
             <span>{world ? 'World' : 'Object'}</span>
           </button>
-        </div>
-      )}
-      {ui.viewMode === 'scene' && (
-        <div className="seg" style={{ background: 'rgba(0,0,0,.5)' }}>
-          <button className={ui.multiview ? 'sel' : ''} onClick={() => S().setMultiview(!ui.multiview)}
-            title="Quad view: Perspective + Top + Front + Side (4)">⊞ Quad</button>
         </div>
       )}
     </div>

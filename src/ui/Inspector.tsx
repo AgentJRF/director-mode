@@ -98,6 +98,27 @@ function KeyInspector({ ks }: { ks: Keyframe[] }) {
   );
 }
 
+// Speed-curve presets for the WHOLE move — shown as soon as a camera has an animation (≥2 position
+// keys) even with nothing selected. Applies the ease to every segment; selecting a key tunes just one.
+function MoveCurve({ cam }: { cam: Camera }) {
+  const st = S();
+  const seg = keysOf(cam, 'position').slice(1); // each non-first key ends a segment (carries its ease)
+  if (seg.length === 0) return null;
+  const ids = seg.map(k => k.id);
+  const eases = new Set(seg.map(k => k.ease));
+  const common = eases.size === 1 ? seg[0].ease : null;
+  return (
+    <div className="sect" style={{ background: 'var(--panel-2)' }}>
+      <div className="sect-t">Speed curve presets{common === null && <span className="st">mixed</span>}</div>
+      <div className="ease-grid">
+        {EASE_LIST.map(ez => <div key={ez} className={'ease-opt' + (common === ez ? ' sel' : '')} onClick={() => st.setKeysEase(ids, ez)}>{ez}</div>)}
+      </div>
+      <EaseCurve ease={common ?? seg[0].ease} />
+      <p className="hint" style={{ marginTop: 6 }}>Applies to the whole move. Select a key on the timeline to tune one segment.</p>
+    </div>
+  );
+}
+
 // A small diagram illustrating each camera move. The filled dot is the target; arrows/paths show
 // how the camera moves relative to it.
 function MoveIcon({ kind }: { kind: string }) {
@@ -187,7 +208,7 @@ export default function Inspector() {
     <div id="inspector">
       <Outliner />
 
-      {selKeys.length > 0 && <KeyInspector ks={selKeys} />}
+      {selKeys.length > 0 ? <KeyInspector ks={selKeys} /> : <MoveCurve cam={cam} />}
 
       <div className="sect">
         <div className="sect-t">Transform</div>
