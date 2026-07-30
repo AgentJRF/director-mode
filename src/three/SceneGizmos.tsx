@@ -20,7 +20,6 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
   const interp = useStore(s => s.ui.interp);
   const { gl, camera, scene } = useThree();
   const st = S(); const cam = st.active(); const space = st.ui.gizmoSpace;
-  const selectTool = st.ui.tool === 'select'; // Select tool acts on keyframes only — camera gizmo is hidden/inert
   const dragTarget = useRef<{ id: string; kind: 'key' | 'in' | 'out'; group?: { id: string; orig: Vec3 }[]; anchor?: Vec3 } | null>(null);
   const gizmoDrag = useRef(false);
   const frozen = useRef<THREE.Matrix4 | null>(null);
@@ -307,7 +306,7 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
         // Screen-fixed sizing/billboarding is applied per quadrant by gizmoLayout (from the renderer).
         return (
           <>
-            {!selectTool && <MultiviewGizmo origin={camPose} kind="camera" rotation={!cam.target} quaternion={[baseQuat.x, baseQuat.y, baseQuat.z, baseQuat.w]} />}
+            <MultiviewGizmo origin={camPose} kind="camera" rotation={!cam.target} quaternion={[baseQuat.x, baseQuat.y, baseQuat.z, baseQuat.w]} />
             <MultiviewGizmo origin={poi} kind="poi" />
           </>
         );

@@ -76,10 +76,17 @@ export default function useMultiviewInput(sceneCamRef: RefObject<THREE.Perspecti
       const rect = dom.getBoundingClientRect();
       const { viewId, sub } = quadrantFor(e.clientX, e.clientY, rect);
       const cam = camFor(viewId); if (!cam) return;
+      // Target tool: click an object in this quadrant to aim the camera at it (object target).
+      if (S().ui.tool === 'target') {
+        rc.setFromCamera(ndcInSub(e.clientX, e.clientY, sub), cam);
+        for (const h of rc.intersectObjects(scene.children, true)) {
+          let o: THREE.Object3D | null = h.object;
+          while (o) { const oid = (o.userData as { objectId?: string }).objectId; if (oid) { S().setTarget({ type: 'object', objectId: oid }); S().setTool('camera'); return; } o = o.parent; }
+        }
+        return; // clicked empty in target mode → no-op
+      }
       layoutGizmosForView(cam, sub.h); // match the on-screen (screen-fixed) gizmo size before hit-testing
-      let hit = pick(cam, sub, e.clientX, e.clientY);
-      // Select tool acts on keyframes only — camera gizmo parts are inert (fall through to marquee)
-      if (hit && S().ui.tool === 'select' && (hit.kind === 'camera' || hit.kind === 'camera-axis' || hit.kind === 'camera-plane' || hit.kind === 'camera-rot')) hit = null;
+      const hit = pick(cam, sub, e.clientX, e.clientY);
       if (hit) {
         if (hit.kind === 'key' && e.shiftKey && hit.id) { S().toggleSelectKey(hit.id); return; } // Shift+click: add/remove
         drag = { ...hit, viewId };
