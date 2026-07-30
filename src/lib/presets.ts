@@ -128,7 +128,7 @@ function applyExactMotion(spec: MotionSpec, ex: MotionExact) {
   cam.target = ex.target ? { type: 'point', point: [...ex.target] as Vec3 } : null; // aim (rotation derived)
   cam.transform.position = [...ex.keys[0].pos] as Vec3;
   ex.keys.forEach((k, i) => {
-    const kk = upsertKeyOn(cam, 'position', k.pos, k.t, 'aiVideo', i ? k.ease : 'linear');
+    const kk = upsertKeyOn(cam, 'position', k.pos, k.t, 'aiVideo', i ? k.ease : 'linear') as Keyframe;
     if (k.tOut) kk.tangentOut = [...k.tOut] as Vec3;
     if (k.tIn) kk.tangentIn = [...k.tIn] as Vec3;
   });
@@ -148,8 +148,8 @@ export function applyMotionSpec(spec: MotionSpec) {
   cam.target = { type: 'point', point: PIVOT.toArray() as Vec3 }; // aim stays on the product through the arc
   cam.transform.position = p0;
   // Two position keys carrying Bézier tangents → a single smooth, natural arc (no per-frame keys).
-  const kA = upsertKeyOn(cam, 'position', p0, t0, 'aiVideo', 'linear');
-  const kB = upsertKeyOn(cam, 'position', p1, t1, 'aiVideo', ease);
+  const kA = upsertKeyOn(cam, 'position', p0, t0, 'aiVideo', 'linear') as Keyframe;
+  const kB = upsertKeyOn(cam, 'position', p1, t1, 'aiVideo', ease) as Keyframe;
   kA.tangentOut = [c1[0] - p0[0], c1[1] - p0[1], c1[2] - p0[2]];
   kB.tangentIn = [c2[0] - p1[0], c2[1] - p1[1], c2[2] - p1[2]];
   // Optics are constant across this gesture — set them statically (no needless keys).

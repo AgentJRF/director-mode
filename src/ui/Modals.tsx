@@ -3,6 +3,7 @@ import { S, PIVOT } from '../store';
 import MatchPreview, { MotionPreview } from '../three/MatchPreview';
 import { useRev } from './bits';
 import { evaluate, eulerFromLookAt, sphericalToPose, clamp } from '../lib/eval';
+import { matchCamera, matchMotion } from '../lib/aiMatch';
 import { fuseAB, applyMotionSpec, stepToPose, arcControls, type MotionSpec, type MotionStep } from '../lib/presets';
 import type { Ease, Vec3 } from '../types';
 
@@ -78,9 +79,7 @@ function AIImageModal() {
     if (!img) { S().toast('Upload an image first'); return; }
     setBusy(true);
     try {
-      const r = await fetch('/api/match-camera', { method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ imageBase64: img.data, mediaType: img.media, width: img.w, height: img.h, name: img.name }) });
-      const e = await r.json() as Estimate;
+      const e = await matchCamera({ name: img.name, width: img.w, height: img.h, imageBase64: img.data, mediaType: img.media }) as Estimate;
       setEst(e);
       setForm({ azimuth: e.azimuth_deg, elevation: e.elevation_deg, distance: e.distance_factor, focal: e.focal_mm, aperture: e.aperture_f });
     } catch { S().toast('AI request failed'); }
@@ -174,7 +173,7 @@ function AIImageModal() {
 }
 
 // Motion estimate returned by /api/match-motion (baked Wizard-of-Oz move, or heuristic fallback).
-type MotionEstimate = { gesture: string; duration: number; ease: Ease; start: MotionStep; end: MotionStep; confidence: number; reasoning: string; mocked?: boolean };
+type MotionEstimate = { gesture: string; duration: number; ease: Ease; start: MotionStep; end: MotionStep; confidence: number; reasoning: string; mocked?: boolean; exact?: { target: Vec3 | null; focal: number; aperture: number; duration: number; keys: { t: number; pos: Vec3; ease: Ease; tOut?: Vec3; tIn?: Vec3 }[] } };
 
 function AIVideoModal() {
   const [vid, setVid] = useState<{ url: string; name: string } | null>(null);
@@ -191,8 +190,7 @@ function AIVideoModal() {
     if (!vid) { S().toast('Upload a video first'); return; }
     setBusy(true);
     try {
-      const r = await fetch('/api/match-motion', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: vid.name }) });
-      setEst(await r.json() as MotionEstimate);
+      setEst(await matchMotion(vid.name) as MotionEstimate);
     } catch { S().toast('AI request failed'); }
     setBusy(false);
   };
