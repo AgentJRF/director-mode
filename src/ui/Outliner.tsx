@@ -68,10 +68,8 @@ export default function Outliner() {
               {active && <span className={'ol-dot' + (st.ui.viewMode === 'scene' ? ' scene' : '')}
                 title={st.ui.viewMode === 'camera' ? 'Camera POV — click for Scene view' : 'Scene view — click for Camera POV'}
                 onClick={e => { e.stopPropagation(); st.setViewMode(st.ui.viewMode === 'camera' ? 'scene' : 'camera'); }} />}
-              {proj.cameras.length > 1 && (
-                <span className="ol-eye" title="Delete camera"
-                  onClick={e => { e.stopPropagation(); st.removeCamera(c.id); }}><IcTrash size={13} /></span>
-              )}
+              <span className="ol-eye" title="Delete camera"
+                onClick={e => { e.stopPropagation(); st.removeCamera(c.id); }}><IcTrash size={13} /></span>
               <Eye id={'cam:' + c.id} />
             </div>
           );

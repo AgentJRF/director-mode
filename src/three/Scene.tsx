@@ -87,6 +87,7 @@ export default function Scene() {
   const mode = useStore(s => s.ui.viewMode);
   const multiview = useStore(s => s.ui.multiview);
   const gizmoDragging = useStore(s => s.ui.gizmoDragging);
+  const hasCam = useStore(s => s.project.cameras.length > 0);
   const renderCamRef = useRef<THREE.PerspectiveCamera>(null);
   const sceneCamRef = useRef<THREE.PerspectiveCamera>(null);
   const quad = mode === 'scene' && multiview;
@@ -110,11 +111,11 @@ export default function Scene() {
         mouseButtons={{ LEFT: undefined, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE }}
         enablePan screenSpacePanning panSpeed={1.1} minDistance={1.5} maxDistance={120} />}
       {mode === 'scene' && !multiview && <EditorFly />}
-      {mode === 'scene' && <SceneGizmos renderCamRef={renderCamRef} />}
+      {mode === 'scene' && hasCam && <SceneGizmos renderCamRef={renderCamRef} />}
       {mode === 'scene' && !multiview && <CameraMarkers />}
-      {mode === 'scene' && !multiview && <PoiControl />}
+      {mode === 'scene' && !multiview && hasCam && <PoiControl />}
       {quad && <MultiviewRenderer sceneCamRef={sceneCamRef} />}
-      {mode === 'camera' && <DoF />}
+      {mode === 'camera' && hasCam && <DoF />}
     </Canvas>
   );
 }

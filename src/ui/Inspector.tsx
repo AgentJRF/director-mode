@@ -202,8 +202,17 @@ function CameraMoves({ cam }: { cam: Camera }) {
 export default function Inspector() {
   useRev();
   const st = S(); const cam = st.active();
+  const hasCam = st.project.cameras.length > 0;
   const selKeys = cam.keyframes.filter(k => st.ui.selectedKeyIds.includes(k.id));
   const p = evaluate(cam, st.project.timeline.playhead);
+  if (!hasCam) {
+    return (
+      <div id="inspector">
+        <Outliner />
+        <div className="sect"><p className="hint" style={{ margin: 0 }}>No camera in the scene — add one above to compose a shot.</p></div>
+      </div>
+    );
+  }
   return (
     <div id="inspector">
       <Outliner />

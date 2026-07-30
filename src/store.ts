@@ -23,6 +23,10 @@ function makeCamera(name: string, pos: Vec3 = [4, 2.2, 5], color: string = CAM_C
   };
 }
 
+// Read-only stand-in returned by active() when the scene has NO camera, so components that still call
+// active() never crash. It is never rendered (camera-dependent UI is gated on cameras.length > 0).
+const FALLBACK_CAM: Camera = makeCamera('—');
+
 export interface Pose { position: Vec3; rotation: Vec3; focal: number; }
 
 export type ViewMode = 'camera' | 'scene';
@@ -117,7 +121,7 @@ export const useStore = create<StoreState>((set, get) => {
     canvas: { width: 1920, height: 1080 },
   };
   const bump = () => set(s => ({ rev: s.rev + 1 }));
-  const active = () => { const p = get().project; return p.cameras.find(c => c.id === p.activeCameraId)!; };
+  const active = () => { const p = get().project; return p.cameras.find(c => c.id === p.activeCameraId) ?? p.cameras[0] ?? FALLBACK_CAM; };
 
   return {
     project, rev: 0,
@@ -129,10 +133,9 @@ export const useStore = create<StoreState>((set, get) => {
     addCamera: () => { const p = get().project; const c = makeCamera('Camera ' + String(p.cameras.length + 1).padStart(2, '0'), undefined, CAM_COLORS[p.cameras.length % CAM_COLORS.length]); p.cameras.push(c); p.activeCameraId = c.id; bump(); },
     removeCamera: id => {
       const p = get().project;
-      if (p.cameras.length <= 1) { get().toast('At least one camera is required'); return; } // keep ≥1 camera
       const idx = p.cameras.findIndex(c => c.id === id); if (idx < 0) return;
-      p.cameras.splice(idx, 1);
-      if (p.activeCameraId === id) p.activeCameraId = p.cameras[Math.min(idx, p.cameras.length - 1)].id;
+      p.cameras.splice(idx, 1); // any camera can be removed — the scene may end up with none
+      if (p.activeCameraId === id) p.activeCameraId = p.cameras.length ? p.cameras[Math.min(idx, p.cameras.length - 1)].id : '';
       const ui = get().ui; ui.selectedKeyIds = []; ui.targetSelected = false; delete ui.hidden['cam:' + id];
       bump();
     },

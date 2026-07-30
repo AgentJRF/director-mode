@@ -243,7 +243,8 @@ export default function Timeline() {
 }
 
 function keyAtPlayhead() {
-  const st = S(); const cam = st.active(); const t = st.project.timeline.playhead;
+  const st = S(); if (!st.project.cameras.length) return; // no camera → nothing to key
+  const cam = st.active(); const t = st.project.timeline.playhead;
   const p = evaluate(cam, t);
   st.upsertKey('position', p.position, t, 'manual');
   if (!cam.target) st.upsertKey('rotation', p.rotation, t, 'manual');

@@ -5,6 +5,7 @@ import { evaluate } from '../lib/eval';
 export default function HUD() {
   useRev();
   const st = S(); const cam = st.active(); const tl = st.project.timeline;
+  const hasCam = st.project.cameras.length > 0;
   const p = evaluate(cam, tl.playhead);
   const rec = st.ui.recording;
   const badgeCls = rec ? 'shot-badge rec' : hasAnim(cam) ? 'shot-badge anim' : 'shot-badge';
@@ -23,11 +24,13 @@ export default function HUD() {
           <button className="btn-sm" onClick={() => S().cancelInterp()}>Cancel (Esc)</button>
         </div>
       )}
-      <div className="hud tl"><div className={badgeCls}><span className="led" /><span>{badgeTxt}</span></div></div>
-      <div className="hud tr">
-        <div className="hud-optics">{g(p.focalLength)}&nbsp;mm · f/{p.aperture.toFixed(1)}</div>
-        <div className="hud-sub">shutter {g(p.motionBlur)}° · {cam.name}</div>
-      </div>
+      {hasCam && <div className="hud tl"><div className={badgeCls}><span className="led" /><span>{badgeTxt}</span></div></div>}
+      {hasCam && (
+        <div className="hud tr">
+          <div className="hud-optics">{g(p.focalLength)}&nbsp;mm · f/{p.aperture.toFixed(1)}</div>
+          <div className="hud-sub">shutter {g(p.motionBlur)}° · {cam.name}</div>
+        </div>
+      )}
       <div className="hud bl">
         <span className="ratio-pill" onClick={() => S().setModal('export')}>
           {st.project.canvas.width / d}:{st.project.canvas.height / d} · {st.project.canvas.width}×{st.project.canvas.height} ⚙
