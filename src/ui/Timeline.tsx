@@ -215,7 +215,7 @@ export default function Timeline() {
         </label>
         <label className="tl-field">Duration
           {durUnit === 'tc' ? (
-            <input type="text" className="tc-input" value={durText ?? toTimecode(dur, fps)} style={{ width: 92 }}
+            <input type="text" className="tc-input" value={durText ?? toTimecode(dur, fps)}
               title="Duration as timecode H;MM;SS;FF" placeholder="0;00;00;00"
               onChange={e => setDurText(e.target.value)}
               onBlur={() => { if (durText != null) { const v = fromTimecode(durText, fps); if (v != null) S().setDuration(v); setDurText(null); } }}

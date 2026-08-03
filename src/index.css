@@ -193,10 +193,11 @@ input:focus,select:focus{outline:none;border-color:var(--focus)}
 .tl-scroll::-webkit-scrollbar{height:9px}
 .tl-scroll::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:4px}
 .tl-scroll::-webkit-scrollbar-track{background:transparent}
-/* the two timecodes (playhead readout + Duration field) share one type + size */
-.tc,.tl-field input.tc-input{font-family:var(--sans);font-variant-numeric:tabular-nums;font-size:13px;color:var(--ink)}
-.tc{background:#1a1a1a;border:1px solid var(--line-2);border-radius:4px;padding:3px 8px}
-.tl-field input.tc-input{text-align:right}
+/* the two timecodes (playhead readout + Duration field) share ONE look: type, size AND the dark pill */
+.tc,.tl-field input.tc-input{font-family:var(--sans);font-variant-numeric:tabular-nums;font-size:13px;color:var(--ink);
+  background:#1a1a1a;border:1px solid var(--line-2);border-radius:4px;padding:3px 8px}
+.tl-field input.tc-input{width:84px}
+.tl-field input.tc-input:focus{outline:none;border-color:var(--focus)}
 .tl-field{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-2)}
 .tl-field select,.tl-field input{padding:3px 6px}
 .tl-zoom{display:flex;align-items:center;gap:8px;padding:5px 12px;border-top:1px solid var(--line)}
