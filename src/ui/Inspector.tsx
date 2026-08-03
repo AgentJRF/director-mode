@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { S, DEFAULT_APERTURE } from '../store';
 import { useRev } from './bits';
 import Outliner from './Outliner';
@@ -20,13 +21,40 @@ function KeyDot({ ch, value, disabled }: { ch: Channel; value: Vec3 | number; di
     onClick={e => { e.stopPropagation(); st.toggleKeyAt(ch, value); }}>{at || ks.length ? '◆' : '◇'}</button>;
 }
 
+// Photoshop/AE-style "scrubby" number field: drag left/right on the box to decrement/increment.
+// A plain click (no drag) falls through to focusing the input for keyboard entry. Shift = fine (×0.25).
+function makeScrub(base: number, step: number, dec: number, onChange: (v: number) => void, min?: number, max?: number) {
+  return (e: ReactPointerEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
+    if (document.activeElement === input) return; // already editing → let the click place the caret
+    e.preventDefault();                            // suppress focus so a drag scrubs instead of typing
+    const startX = e.clientX; let moved = false;
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      if (!moved && Math.abs(dx) < 3) return;      // small movement = still a click
+      moved = true;
+      let v = base + dx * step * (ev.shiftKey ? 0.25 : 1);
+      if (min !== undefined) v = Math.max(min, v);
+      if (max !== undefined) v = Math.min(max, v);
+      onChange(round(v, dec));
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
+      if (!moved) { input.focus(); input.select(); } // treat as a click → edit by keyboard
+    };
+    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+  };
+}
+
 function Vec3Row({ label, value, step = 0.1, disabled, ch, onChange }:
   { label: string; value: number[]; step?: number; disabled?: boolean; ch: Channel; onChange: (i: number, v: number) => void }) {
   return (
     <div className={'row vec-row' + (disabled ? ' locked' : '')}>
       <span className="row-lead"><KeyDot ch={ch} value={value as Vec3} disabled={disabled} /><label>{label}</label></span>
       <div className="vec3">{['X', 'Y', 'Z'].map((lb, i) => (
-        <input key={lb} type="number" step={step} value={round(value[i], 2)} onChange={e => onChange(i, parseFloat(e.target.value) || 0)} />
+        <input key={lb} type="number" step={step} value={round(value[i], 2)} disabled={disabled}
+          onPointerDown={disabled ? undefined : makeScrub(round(value[i], 2), step, 2, v => onChange(i, v))}
+          onChange={e => onChange(i, parseFloat(e.target.value) || 0)} />
       ))}</div>
     </div>
   );
@@ -42,6 +70,7 @@ function NumInput({ value, min, max, step, dec, onChange }:
   const commit = () => { if (txt !== null) { const v = parseFloat(txt); if (!isNaN(v)) onChange(clamp(v, min, max)); setTxt(null); } };
   return (
     <input className="val-input" type="number" min={min} max={max} step={step} value={shown}
+      onPointerDown={makeScrub(round(value, dec), step, dec, onChange, min, max)}
       onChange={e => setTxt(e.target.value)} onBlur={commit}
       onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setTxt(null); }} />
   );
@@ -131,7 +160,6 @@ function MoveIcon({ kind }: { kind: string }) {
     case 'pushOut': return <svg {...P}>{dot(22, 14)}<rect x={12} y={11} width={5} height={6} rx={1} /><line x1={11} y1={14} x2={4} y2={14} /><path d="M4 14 l3 -2.2 M4 14 l3 2.2" /></svg>;
     case 'craneUp': return <svg {...P}>{dot(14, 22)}<line x1={14} y1={21} x2={14} y2={7} /><path d="M14 7 l-2.4 3 M14 7 l2.4 3" /></svg>;
     case 'craneDown': return <svg {...P}>{dot(14, 6)}<line x1={14} y1={7} x2={14} y2={21} /><path d="M14 21 l-2.4 -3 M14 21 l2.4 -3" /></svg>;
-    case 'rackFocus': return <svg {...P}>{dot(14, 14)}<circle cx={14} cy={14} r={6.5} /><path d="M14 3.5 v3 M14 21.5 v3 M3.5 14 h3 M21.5 14 h3" /></svg>;
     case 'dollyZoom': return <svg {...P}>{dot(14, 15)}<path d="M4 22 L10 8 L18 8 L24 22" /><path d="M14 22 v-4 M12 20 l2 2 2 -2" /></svg>;
     default: return null;
   }
@@ -163,7 +191,6 @@ function CameraMoves({ cam }: { cam: Camera }) {
     { key: 'pushOut', label: 'Push out', preset: 'dolly', d: -1 },
     { key: 'craneUp', label: 'Crane up', preset: 'crane', d: 1 },
     { key: 'craneDown', label: 'Crane down', preset: 'crane', d: -1 },
-    { key: 'rackFocus', label: 'Rack focus', preset: 'rackFocus' },
     { key: 'dollyZoom', label: 'Dolly zoom', preset: 'dollyZoom' },
   ];
   return (

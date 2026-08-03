@@ -65,6 +65,8 @@ interface StoreState {
   canRedo: () => boolean;
   // selectors as helpers
   active: () => Camera;
+  programCameraAt: (t: number) => Camera | null; // on-air camera at time t (multi-camera cuts)
+  renderCamera: () => Camera;                     // camera the viewport shows now (program while playing, else active)
   // actions
   setTool: (t: Tool) => void;
   toast: (m: string) => void;
@@ -72,6 +74,7 @@ interface StoreState {
   addCamera: () => void;
   removeCamera: (id: string) => void;
   setCameraColor: (id: string, color: string) => void;
+  setCameraClip: (id: string, start: number, end: number) => void;
   startInterp: () => void;
   pickInterp: (id: string) => void;
   cancelInterp: () => void;
@@ -99,6 +102,7 @@ interface StoreState {
   clearChannel: (ch: Channel) => void;
   clearAnim: () => void;
   setKeyTime: (id: string, t: number) => void;
+  moveKeysTimes: (entries: { id: string; time: number }[]) => void;
   setKeyValueComp: (id: string, i: number, v: number) => void;
   setKeyTangent: (id: string, which: 'in' | 'out', v: Vec3 | null) => void;
   setKeyFocal: (id: string, v: number) => void;
@@ -158,11 +162,26 @@ export const useStore = create<StoreState>((set, get) => {
     set(s => ({ rev: s.rev + 1 }));
   };
   const active = () => { const p = get().project; return p.cameras.find(c => c.id === p.activeCameraId) ?? p.cameras[0] ?? FALLBACK_CAM; };
+  // On-air camera at time t: among cameras whose clip window contains t, the LAST in stacking order wins
+  // (later cameras sit "on top"). Cameras hidden from the timeline don't take the air.
+  const programCameraAt = (t: number): Camera | null => {
+    const p = get().project; const hidden = get().ui.hidden;
+    let on: Camera | null = null;
+    for (const c of p.cameras) {
+      if (hidden['cam:' + c.id]) continue;
+      const [s, e] = clipRange(c, p.timeline.duration);
+      if (t >= s && t <= e) on = c;
+    }
+    return on;
+  };
+  // The camera the viewport renders: while playing we follow the program (cuts); paused, the selected
+  // camera so it can be composed. Falls back to active when no clip covers the playhead.
+  const renderCamera = () => { const st = get(); return st.project.timeline.playing ? (programCameraAt(st.project.timeline.playhead) ?? active()) : active(); };
 
   return {
     project, rev: 0,
     ui: { tool: 'select', selectedKeyIds: [], poseA: null, poseB: null, modal: null, recording: false, toast: '', viewMode: 'camera', gizmoDragging: false, gizmoMode: 'translate', gizmoSpace: 'local', focusPicking: false, targetSelected: false, multiview: false, split: false, motionBlur: false, splineViz: 'none', hidden: {}, interp: null },
-    bump, active,
+    bump, active, programCameraAt, renderCamera,
     undo: () => {
       if (commitTimer) { clearTimeout(commitTimer); commitTimer = null; }
       commitNow();                       // flush any pending edit into history first
@@ -191,6 +210,14 @@ export const useStore = create<StoreState>((set, get) => {
       bump();
     },
     setCameraColor: (id, color) => { const c = get().project.cameras.find(c => c.id === id); if (c) { c.color = color; bump(); } },
+    setCameraClip: (id, start, end) => {
+      const p = get().project; const c = p.cameras.find(c => c.id === id); if (!c) return;
+      const dur = p.timeline.duration; const min = 1 / (p.fps || 30); // shortest clip = one frame
+      let s = clamp(start, 0, dur), e = clamp(end, 0, dur);
+      if (e - s < min) { if (start !== (c.clip?.start ?? 0)) s = clamp(e - min, 0, dur); else e = clamp(s + min, 0, dur); }
+      c.clip = { start: round(s, 3), end: round(e, 3) };
+      bump();
+    },
     startInterp: () => {
       const p = get().project;
       if (p.cameras.length < 2) { get().toast('Add a second camera first'); return; }
@@ -276,6 +303,7 @@ export const useStore = create<StoreState>((set, get) => {
     clearChannel: ch => { const c = active(); c.keyframes = c.keyframes.filter(k => k.channel !== ch); bump(); },
     clearAnim: () => { active().keyframes = []; bump(); },
     setKeyTime: (id, t) => { const k = active().keyframes.find(k => k.id === id); if (k) k.time = clamp(t, 0, get().project.timeline.duration); bump(); },
+    moveKeysTimes: entries => { const c = active(); const dur = get().project.timeline.duration; const m = new Map(entries.map(e => [e.id, e.time])); c.keyframes.forEach(k => { if (m.has(k.id)) k.time = clamp(m.get(k.id)!, 0, dur); }); bump(); },
     setKeyValueComp: (id, i, v) => { const k = active().keyframes.find(k => k.id === id); if (k && Array.isArray(k.value)) { const nv = [...(k.value as Vec3)] as Vec3; nv[i] = v; k.value = nv; } bump(); }, // replace (not mutate) so React/R3F consumers see a new reference
     setKeyTangent: (id, which, v) => { const k = active().keyframes.find(k => k.id === id); if (k) { const nv = v ? ([...v] as Vec3) : undefined; if (which === 'out') k.tangentOut = nv; else k.tangentIn = nv; } bump(); }, // v=null clears the tangent (back to auto/straight)
     setKeyFocal: (id, v) => { const k = active().keyframes.find(k => k.id === id); if (k) k.value = v; bump(); },
@@ -304,6 +332,13 @@ export const useStore = create<StoreState>((set, get) => {
     setGizmoSpace: s => { get().ui.gizmoSpace = s; bump(); },
   };
 });
+
+// A camera's on-air window on the global timeline, defaulting to the full [0, duration] when untrimmed.
+export function clipRange(cam: Camera, duration: number): [number, number] {
+  const s = cam.clip ? clamp(cam.clip.start, 0, duration) : 0;
+  const e = cam.clip ? clamp(cam.clip.end, 0, duration) : duration;
+  return e >= s ? [s, e] : [e, s];
+}
 
 export function upsertKeyOn(cam: Camera, ch: Channel, value: Vec3 | number, time: number, source: KeySource = 'manual', ease: Ease = 'easeInOut') {
   const ks = keysOf(cam, ch);

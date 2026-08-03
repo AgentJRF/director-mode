@@ -4,7 +4,7 @@ import { evaluate } from '../lib/eval';
 
 export default function HUD() {
   useRev();
-  const st = S(); const cam = st.active(); const tl = st.project.timeline;
+  const st = S(); const cam = st.renderCamera(); const tl = st.project.timeline; // on-air camera while playing (cuts)
   const hasCam = st.project.cameras.length > 0;
   const p = evaluate(cam, tl.playhead);
   const rec = st.ui.recording;

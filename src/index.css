@@ -102,17 +102,19 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 .sect-t{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
 .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}
 .row label{font-size:12px;color:var(--ink-2);white-space:nowrap}
-.val{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink)}
+.val{font-family:var(--sans);font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink)}
 /* editable numeric box (slider values, hand-typed) */
 .val-box{display:flex;align-items:center;gap:3px;justify-content:flex-end;flex:0 0 auto}
 /* inspector sliders: let the range shrink so the value box always stays inside the 300px panel */
 .row input[type=range]{min-width:0}
-.val-fix{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.val-fix{font-family:var(--sans);font-size:11px;color:var(--ink-3)}
 /* .val-box .val-input: needs higher specificity than `input[type=number]` (which forces width:72px) */
 .val-box .val-input{width:50px;box-sizing:border-box;background:var(--panel);border:1px solid var(--line-2);border-radius:4px;color:var(--ink);
-  font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:12px;text-align:right;padding:2px 4px;-moz-appearance:textfield}
+  font-family:var(--sans);font-variant-numeric:tabular-nums;font-size:12px;text-align:right;padding:2px 4px;-moz-appearance:textfield}
 .val-input::-webkit-outer-spin-button,.val-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .val-input:hover{border-color:var(--line-3)}
+/* scrubby number fields: drag to change value; text caret only once focused for typing */
+.val-input:not(:focus),.vec3 input[type=number]:not(:focus){cursor:ew-resize}
 .val-input:focus{outline:none;border-color:var(--focus);box-shadow:0 0 0 1px var(--focus);background:var(--panel-2)}
 /* AI image upload dropzone */
 .ai-drop{display:flex;align-items:center;justify-content:center;min-height:130px;border:1.5px dashed var(--line-2);border-radius:8px;cursor:pointer;padding:12px;margin-top:8px;background:var(--panel);text-align:center}
@@ -120,7 +122,7 @@ button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:n
 input[type=range]{-webkit-appearance:none;height:3px;background:var(--line-2);border-radius:2px;outline:none;flex:1;min-width:70px}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--ink);cursor:pointer;border:2px solid var(--panel)}
 input[type=range].amber::-webkit-slider-thumb{background:var(--amber)}
-input[type=number],input[type=text],select{background:var(--panel-2);border:1px solid var(--line-2);border-radius:5px;color:var(--ink);padding:5px 7px;font-family:var(--mono);font-size:12px;width:72px}
+input[type=number],input[type=text],select{background:var(--panel-2);border:1px solid var(--line-2);border-radius:5px;color:var(--ink);padding:5px 7px;font-family:var(--sans);font-variant-numeric:tabular-nums;font-size:12px;width:72px}
 select{width:auto;font-family:var(--sans)}
 input:focus,select:focus{outline:none;border-color:var(--focus)}
 .locked{opacity:.42;pointer-events:none}

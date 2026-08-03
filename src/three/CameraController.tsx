@@ -54,8 +54,9 @@ export default function CameraController({ renderCamRef }: { renderCamRef: RefOb
   }, [gl]);
 
   useFrame((_, dt) => {
-    const st = S(); const tl = st.project.timeline; const cam = st.active();
+    const st = S(); const tl = st.project.timeline;
     if (tl.playing) { let t = tl.playhead + dt; if (t >= tl.duration) { t = tl.duration; st.setPlaying(false); } tl.playhead = t; st.bump(); }
+    const cam = st.renderCamera(); // follows the on-air camera during playback (multi-camera cuts)
     const c = renderCamRef.current; if (!c) return;
     const p = evaluate(cam, tl.playhead);
     if (dragging.current && pending.current && st.ui.viewMode === 'camera') {

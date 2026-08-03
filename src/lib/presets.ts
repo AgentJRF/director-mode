@@ -69,12 +69,19 @@ export function applyPreset(kind: string, opts: PresetOpts = {}) {
     }
     case 'pan': { const r0 = base.rotation.slice() as Vec3; const r1 = r0.slice() as Vec3; r1[1] -= 28 * amp; setKey('rotation', r0, t0, 'linear'); setKey('rotation', r1, t1, ease); break; }
     case 'tilt': { const r0 = base.rotation.slice() as Vec3; const r1 = r0.slice() as Vec3; r1[0] += 20 * amp; setKey('rotation', r0, t0, 'linear'); setKey('rotation', r1, t1, ease); break; }
-    case 'rackFocus': { setKey('focalLength', cam.optics.focalLength, t0, 'linear'); setKey('focalLength', clamp(cam.optics.focalLength * 1.9 * amp, 14, 200), t1, ease); break; }
     case 'dollyZoom': {
-      const dir = new THREE.Vector3(...startPos).sub(pivot).normalize();
-      const p1 = new THREE.Vector3(...startPos).addScaledVector(dir, 2.6 * amp).toArray() as Vec3;
+      // Vertigo / dolly-zoom: the subject stays the SAME size in frame while the perspective warps.
+      // Apparent size ∝ focal / distance, so keeping it constant means focal ∝ distance.
+      // dir = +1 → dolly IN + zoom OUT (background expands); dir = -1 → dolly OUT + zoom IN.
+      const radial = new THREE.Vector3(...startPos).sub(pivot);
+      const d0 = radial.length() || 1;
+      const vdir = radial.clone().normalize();
+      const d1 = clamp(d0 - 2.2 * amp * dir, 1.4, 30);          // +dir moves toward the target
+      const p1 = pivot.clone().addScaledVector(vdir, d1).toArray() as Vec3;
+      const f0 = cam.optics.focalLength;
+      const f1 = clamp(f0 * (d1 / d0), 14, 200);                 // keep subject size: focal tracks distance
       setKey('position', startPos, t0, 'linear'); setKey('position', p1, t1, ease);
-      setKey('focalLength', cam.optics.focalLength, t0, 'linear'); setKey('focalLength', clamp(cam.optics.focalLength * 0.5, 14, 200), t1, ease);
+      setKey('focalLength', f0, t0, 'linear'); setKey('focalLength', f1, t1, ease);
       break;
     }
   }

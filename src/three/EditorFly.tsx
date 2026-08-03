@@ -13,7 +13,9 @@ export default function EditorFly() {
   useEffect(() => {
     const isField = (t: any) => t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA');
     const wanted = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
-    const dn = (e: KeyboardEvent) => { if (isField(e.target) || !wanted.includes(e.code)) return; keys.current[e.code] = true; };
+    // Ignore when a modifier is held so app shortcuts (Ctrl+Z undo, etc.) don't drive the fly camera —
+    // on AZERTY the physical `KeyW` (fly-forward) is the "Z" key, so Ctrl+Z would otherwise advance.
+    const dn = (e: KeyboardEvent) => { if (e.ctrlKey || e.metaKey || e.altKey || isField(e.target) || !wanted.includes(e.code)) return; keys.current[e.code] = true; };
     const up = (e: KeyboardEvent) => { keys.current[e.code] = false; };
     window.addEventListener('keydown', dn); window.addEventListener('keyup', up);
     return () => { window.removeEventListener('keydown', dn); window.removeEventListener('keyup', up); keys.current = {}; };

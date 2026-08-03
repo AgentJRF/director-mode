@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { S, CAM_COLORS } from '../store';
+import { S, CAM_COLORS, clipRange } from '../store';
 import { useRev } from './bits';
 import { clamp, evaluate, keysOf, poiPoint } from '../lib/eval';
 import { toTimecode, snapToFrame, niceFrameStep } from '../lib/time';
@@ -20,7 +20,7 @@ export default function Timeline() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [colorMenu, setColorMenu] = useState<{ camId: string; x: number; y: number } | null>(null);
-  const drag = useRef<{ mode: 'scrub' | 'key' | 'marquee'; keyId?: string; x0?: number; y0?: number; moved?: boolean } | null>(null);
+  const drag = useRef<{ mode: 'scrub' | 'key' | 'marquee' | 'clip'; keyId?: string; camId?: string; edge?: 'start' | 'end'; x0?: number; y0?: number; moved?: boolean; grabbedBase?: number; base?: { id: string; t: number }[] } | null>(null);
 
   useEffect(() => {
     if (!colorMenu) return;
@@ -43,7 +43,6 @@ export default function Timeline() {
   const pxPerSec = fitPxPerSec * zoom;
   const contentW = Math.max(viewW, LEFT + dur * pxPerSec + RIGHT);
   const x = (t: number) => LEFT + t * pxPerSec;
-  const barW = Math.max(6, dur * pxPerSec);
   const timeFromX = (px: number) => clamp((px - LEFT) / pxPerSec, 0, dur);
   const snap = (t: number) => snapToFrame(t, fps);
 
@@ -85,18 +84,44 @@ export default function Timeline() {
     if (colorId) { setColorMenu({ camId: colorId, x: e.clientX, y: e.clientY }); return; }
     const toggle = el.getAttribute('data-toggle');
     if (toggle) { setExpanded(x0 => ({ ...x0, [toggle]: !x0[toggle] })); return; }
+    const clipEdge = el.getAttribute('data-clip-start') || el.getAttribute('data-clip-end');
+    if (clipEdge) {
+      const edge = el.getAttribute('data-clip-start') ? 'start' as const : 'end' as const;
+      if (clipEdge !== proj.activeCameraId) S().selectCamera(clipEdge);
+      try { (e.currentTarget as SVGElement).setPointerCapture(e.pointerId); } catch { /* best-effort */ }
+      drag.current = { mode: 'clip', camId: clipEdge, edge };
+      return;
+    }
     const keyId = el.getAttribute('data-key'); const camId = el.getAttribute('data-cam');
     try { (e.currentTarget as SVGElement).setPointerCapture(e.pointerId); } catch { /* capture is best-effort */ }
     if (camId && camId !== proj.activeCameraId) S().selectCamera(camId);
     const { x: px, y: py } = svgPt(e);
-    if (keyId) { drag.current = { mode: 'key', keyId }; S().selectKey(keyId); }
+    if (keyId) {
+      if (e.shiftKey) { S().toggleSelectKey(keyId); drag.current = null; return; } // shift-click toggles, no drag
+      const sel = S().ui.selectedKeyIds;
+      // Grab inside a multi-selection → move the whole group; otherwise select this key alone.
+      const moving = sel.includes(keyId) && sel.length > 1 ? sel : [keyId];
+      if (!sel.includes(keyId)) S().selectKey(keyId);
+      const times = new Map(S().active().keyframes.map(k => [k.id, k.time]));
+      const base = moving.map(id => ({ id, t: times.get(id)! })).filter(b => b.t !== undefined);
+      drag.current = { mode: 'key', keyId, grabbedBase: times.get(keyId)!, base };
+    }
     else if (py < TOP_H) { drag.current = { mode: 'scrub' }; S().setPlayhead(snap(timeFromX(px))); } // ruler → scrub
     else { drag.current = { mode: 'marquee', x0: px, y0: py, moved: false }; setMarquee({ x0: px, y0: py, x1: px, y1: py }); } // body → drag-select
   };
   const onMove = (e: React.PointerEvent) => {
     if (!drag.current) return; const { x: px, y: py } = svgPt(e);
     if (drag.current.mode === 'scrub') S().setPlayhead(snap(timeFromX(px)));
-    else if (drag.current.mode === 'key' && drag.current.keyId) S().setKeyTime(drag.current.keyId, snap(timeFromX(px)));
+    else if (drag.current.mode === 'key' && drag.current.base) {
+      const dt = snap(timeFromX(px)) - drag.current.grabbedBase!; // frame-snapped delta, applied to the whole group
+      S().moveKeysTimes(drag.current.base.map(b => ({ id: b.id, time: b.t + dt })));
+    }
+    else if (drag.current.mode === 'clip' && drag.current.camId) {
+      const c = proj.cameras.find(cc => cc.id === drag.current!.camId); if (!c) return;
+      const [cs, ce] = clipRange(c, dur); const t = snap(timeFromX(px));
+      if (drag.current.edge === 'start') S().setCameraClip(drag.current.camId, t, ce);
+      else S().setCameraClip(drag.current.camId, cs, t);
+    }
     else if (drag.current.mode === 'marquee') {
       drag.current.moved = true;
       const box = { x0: drag.current.x0!, y0: drag.current.y0!, x1: px, y1: py }; setMarquee(box);
@@ -165,9 +190,10 @@ export default function Timeline() {
           {layout.map(({ c, headerY, exp, rows }) => {
             const cy = headerY + TRACK_H / 2; const active = c.id === proj.activeCameraId;
             const ks = c.keyframes;
+            const [cs, ce] = clipRange(c, dur); const bs = x(cs), be = x(ce); const bw = Math.max(6, be - bs);
             return (
               <g key={c.id}>
-                <rect data-cam={c.id} x={LEFT} y={headerY} width={barW} height={TRACK_H} rx={6}
+                <rect data-cam={c.id} x={bs} y={headerY} width={bw} height={TRACK_H} rx={6}
                   fill={c.color} fillOpacity={active ? 0.9 : 0.4} style={{ cursor: 'pointer' }} />
                 {/* collapsed: one small rectangle per keyframe time (merged) to locate the keys */}
                 {!exp && [...new Set(ks.map(k => Math.round(k.time * 1000)))].map(ms => {
@@ -175,21 +201,26 @@ export default function Timeline() {
                   return <rect key={ms} x={kx - 3} y={headerY + 9} width={6} height={TRACK_H - 18} rx={2}
                     fill="#f5c400" stroke="#8a6d00" strokeWidth={1} pointerEvents="none" />;
                 })}
-                <text x={LEFT + 12} y={cy + 4} fill={active ? '#ffffff' : '#e6e6ea'} fillOpacity={active ? 1 : 0.75} fontSize={11} pointerEvents="none">{exp ? '▾' : '▸'}</text>
+                <text x={bs + 14} y={cy + 4} fill={active ? '#ffffff' : '#e6e6ea'} fillOpacity={active ? 1 : 0.75} fontSize={11} pointerEvents="none">{exp ? '▾' : '▸'}</text>
                 {/* colour swatch — click to recolour this camera's track */}
-                <circle cx={LEFT + 34} cy={cy} r={6} fill={c.color} stroke="#0006" strokeWidth={1} pointerEvents="none" />
-                <text x={LEFT + 48} y={cy + 4} fill={active ? '#ffffff' : '#e6e6ea'} fillOpacity={active ? 1 : 0.8} fontSize={12} pointerEvents="none">{c.name}</text>
-                <rect data-toggle={c.id} x={LEFT} y={headerY} width={24} height={TRACK_H} fill="none" pointerEvents="all" style={{ cursor: 'pointer' }} />
-                <rect data-color={c.id} x={LEFT + 25} y={headerY} width={18} height={TRACK_H} fill="none" pointerEvents="all" style={{ cursor: 'pointer' }} />
+                <circle cx={bs + 36} cy={cy} r={6} fill={c.color} stroke="#0006" strokeWidth={1} pointerEvents="none" />
+                <text x={bs + 50} y={cy + 4} fill={active ? '#ffffff' : '#e6e6ea'} fillOpacity={active ? 1 : 0.8} fontSize={12} pointerEvents="none">{c.name}</text>
+                <rect data-toggle={c.id} x={bs + 6} y={headerY} width={24} height={TRACK_H} fill="none" pointerEvents="all" style={{ cursor: 'pointer' }} />
+                <rect data-color={c.id} x={bs + 27} y={headerY} width={18} height={TRACK_H} fill="none" pointerEvents="all" style={{ cursor: 'pointer' }} />
+                {/* clip trim handles — drag the bar edges to set this camera's on-air window (multi-camera cuts) */}
+                <rect data-clip-start={c.id} x={bs} y={headerY} width={6} height={TRACK_H} rx={3} fill="#fff" fillOpacity={active ? 0.55 : 0.22} style={{ cursor: 'ew-resize' }}>
+                  <title>Drag to set when this shot starts</title></rect>
+                <rect data-clip-end={c.id} x={be - 6} y={headerY} width={6} height={TRACK_H} rx={3} fill="#fff" fillOpacity={active ? 0.55 : 0.22} style={{ cursor: 'ew-resize' }}>
+                  <title>Drag to set when this shot ends</title></rect>
 
-                {exp && rows.length > 0 && <rect x={LEFT} y={rows[0].ry - 2} width={barW} height={rows.length * ROW_H + 4} rx={6} fill={c.color} fillOpacity={0.10} />}
+                {exp && rows.length > 0 && <rect x={bs} y={rows[0].ry - 2} width={bw} height={rows.length * ROW_H + 4} rx={6} fill={c.color} fillOpacity={0.10} />}
                 {rows.map(({ def, ry }) => {
                   const rcy = ry + ROW_H / 2;
                   const grey = !!def.lock;
                   return (
                     <g key={def.label}>
-                      <text x={LEFT + 30} y={rcy + 3} fill={grey ? '#6b6270' : '#9aa3ab'} fontSize={10}>{def.label}{def.lock ? ' ⚿' : ''}</text>
-                      <line x1={LEFT} y1={ry + ROW_H - 1} x2={LEFT + barW} y2={ry + ROW_H - 1} stroke="#2a2130" />
+                      <text x={bs + 32} y={rcy + 3} fill={grey ? '#6b6270' : '#9aa3ab'} fontSize={10}>{def.label}{def.lock ? ' ⚿' : ''}</text>
+                      <line x1={bs} y1={ry + ROW_H - 1} x2={be} y2={ry + ROW_H - 1} stroke="#2a2130" />
                       {keysOf(c, def.ch).map(k => diamond(k, x(k.time), rcy, c.id, 5))}
                     </g>
                   );

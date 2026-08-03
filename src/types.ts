@@ -31,6 +31,8 @@ export interface Camera {
   optics: { focalLength: number; aperture: number; motionBlurShutter: number; focusPoint?: Vec3 | null };
   target: Target | null;
   keyframes: Keyframe[];
+  // On-air time window on the global timeline (multi-camera cuts). Undefined = spans the whole timeline.
+  clip?: { start: number; end: number };
 }
 
 export type Tool = 'select' | 'camera' | 'target';
