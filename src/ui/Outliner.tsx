@@ -35,16 +35,17 @@ export default function Outliner() {
   useRev();
   const st = S(); const proj = st.project; const cam = st.active();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [camMenu, setCamMenu] = useState<{ id: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
-    if (!menu) return;
-    const close = () => setMenu(null);
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenu(null); };
+    if (!menu && !camMenu) return;
+    const close = () => { setMenu(null); setCamMenu(null); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     window.addEventListener('pointerdown', close);
     window.addEventListener('scroll', close, true);
     window.addEventListener('keydown', onKey);
     return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('scroll', close, true); window.removeEventListener('keydown', onKey); };
-  }, [menu]);
+  }, [menu, camMenu]);
 
   const isTarget = (id: string) => cam.target?.type === 'object' && cam.target.objectId === id;
   const onTargetContext = (e: React.MouseEvent, id: string) => {
@@ -62,7 +63,8 @@ export default function Outliner() {
         {proj.cameras.map(c => {
           const active = c.id === proj.activeCameraId;
           return (
-            <div key={c.id} className={'ol-row' + (active ? ' sel' : '')} onClick={() => st.selectCamera(c.id)}>
+            <div key={c.id} className={'ol-row' + (active ? ' sel' : '')} onClick={() => st.selectCamera(c.id)}
+              onContextMenu={e => { e.preventDefault(); st.selectCamera(c.id); setCamMenu({ id: c.id, x: e.clientX, y: e.clientY }); }}>
               <span className="ol-ic" style={{ color: c.color }}><IcCamera size={14} /></span>
               <span className="nm">{c.name}</span>
               {active && <span className={'ol-dot' + (st.ui.viewMode === 'scene' ? ' scene' : '')}
@@ -95,6 +97,19 @@ export default function Outliner() {
         }} onPointerDown={e => e.stopPropagation()}>
           <button className="btn-sm btn-full" style={{ border: 'none', justifyContent: 'flex-start' }}
             onClick={() => { st.setTarget(null); setMenu(null); }}>Retirer la cible</button>
+        </div>
+      )}
+
+      {camMenu && (
+        <div style={{
+          position: 'fixed', left: camMenu.x, top: camMenu.y, zIndex: 100,
+          background: 'var(--panel-2)', border: '1px solid var(--line-2)', borderRadius: 6,
+          boxShadow: '0 8px 30px rgba(0,0,0,.5)', padding: 4, minWidth: 160,
+        }} onPointerDown={e => e.stopPropagation()}>
+          <button className="btn-sm btn-full" style={{ border: 'none', justifyContent: 'flex-start' }}
+            onClick={() => { st.duplicateCamera(camMenu.id); setCamMenu(null); }}>Duplicate camera</button>
+          <button className="btn-sm btn-full danger" style={{ border: 'none', justifyContent: 'flex-start' }}
+            onClick={() => { st.removeCamera(camMenu.id); setCamMenu(null); }}>Delete camera</button>
         </div>
       )}
     </>

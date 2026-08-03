@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { S, CAM_COLORS, clipRange } from '../store';
 import { useRev } from './bits';
 import { clamp, evaluate, keysOf, poiPoint } from '../lib/eval';
-import { toTimecode, snapToFrame, niceFrameStep } from '../lib/time';
+import { toTimecode, fromTimecode, snapToFrame, niceFrameStep } from '../lib/time';
 import type { Channel, Keyframe } from '../types';
 
 const TRACK_H = 26, ROW_H = 18, GAP = 8, TOP_H = 22, LEFT = 8, RIGHT = 24;
@@ -16,12 +16,14 @@ export default function Timeline() {
   const [viewW, setViewW] = useState(800);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [zoom, setZoom] = useState(1);
-  const [durUnit, setDurUnit] = useState<'s' | 'f'>('s');
+  const [durUnit, setDurUnit] = useState<'s' | 'f' | 'tc'>('s');
+  const [durText, setDurText] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [colorMenu, setColorMenu] = useState<{ camId: string; x: number; y: number } | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ camId: string; x: number; y: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const drag = useRef<{ mode: 'scrub' | 'key' | 'marquee' | 'clip'; keyId?: string; camId?: string; edge?: 'start' | 'end'; x0?: number; y0?: number; moved?: boolean; grabbedBase?: number; base?: { id: string; t: number }[]; pointerId?: number } | null>(null);
+  const drag = useRef<{ mode: 'scrub' | 'key' | 'marquee' | 'clip' | 'clip-move'; keyId?: string; camId?: string; edge?: 'start' | 'end'; x0?: number; y0?: number; moved?: boolean; grabbedBase?: number; base?: { id: string; t: number }[]; baseStart?: number; grabT?: number; pointerId?: number } | null>(null);
 
   // End any in-progress drag on ANY pointerup/cancel or window blur — even if the SVG's own pointerup is
   // missed (released outside the element, over browser chrome, etc.). Also releases the pointer capture so
@@ -48,6 +50,15 @@ export default function Timeline() {
     return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', onKey); };
   }, [colorMenu]);
 
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setCtxMenu(null); };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', onKey); };
+  }, [ctxMenu]);
+
   useLayoutEffect(() => {
     const el = scrollRef.current!; const ro = new ResizeObserver(() => setViewW(el.clientWidth));
     ro.observe(el); setViewW(el.clientWidth);
@@ -62,6 +73,15 @@ export default function Timeline() {
   const x = (t: number) => LEFT + t * pxPerSec;
   const timeFromX = (px: number) => clamp((px - LEFT) / pxPerSec, 0, dur);
   const snap = (t: number) => snapToFrame(t, fps);
+  // Snap an edge to nearby cut points — 0, the timeline end, the playhead, and every OTHER clip's
+  // start/end (butt-join cuts) — within ~8px; otherwise fall back to frame snapping.
+  const snapTime = (t: number, excludeId: string) => {
+    const pts = [0, dur, tl.playhead];
+    proj.cameras.forEach(c => { if (c.id !== excludeId && !st.ui.hidden['cam:' + c.id]) { const [s, e] = clipRange(c, dur); pts.push(s, e); } });
+    let best: number | null = null, bestD = 8 / pxPerSec;
+    for (const p of pts) { const d = Math.abs(t - p); if (d < bestD) { best = p; bestD = d; } }
+    return best !== null ? best : snap(t);
+  };
 
   const rowsFor = (c: typeof cams[number]): RowDef[] => ([
     { label: 'Point of Interest', ch: 'poi', lock: c.target?.type === 'object' },
@@ -123,6 +143,13 @@ export default function Timeline() {
       const base = moving.map(id => ({ id, t: times.get(id)! })).filter(b => b.t !== undefined);
       drag.current = { mode: 'key', keyId, grabbedBase: times.get(keyId)!, base, pointerId: e.pointerId };
     }
+    else if (camId) { // grabbed the coloured track bar (not an edge handle) → slide the whole clip in time
+      let targetId = camId;
+      if (e.altKey) { const nid = S().duplicateCamera(camId); if (nid) targetId = nid; } // Alt+drag = duplicate, then move the copy
+      const c = S().project.cameras.find(cc => cc.id === targetId)!;
+      const [cs] = clipRange(c, dur);
+      drag.current = { mode: 'clip-move', camId: targetId, baseStart: cs, grabT: timeFromX(px), moved: false, pointerId: e.pointerId };
+    }
     else if (py < TOP_H) { drag.current = { mode: 'scrub', pointerId: e.pointerId }; S().setPlayhead(snap(timeFromX(px))); } // ruler → scrub
     else { drag.current = { mode: 'marquee', x0: px, y0: py, moved: false, pointerId: e.pointerId }; setMarquee({ x0: px, y0: py, x1: px, y1: py }); } // body → drag-select
   };
@@ -135,9 +162,13 @@ export default function Timeline() {
     }
     else if (drag.current.mode === 'clip' && drag.current.camId) {
       const c = proj.cameras.find(cc => cc.id === drag.current!.camId); if (!c) return;
-      const [cs, ce] = clipRange(c, dur); const t = snap(timeFromX(px));
+      const [cs, ce] = clipRange(c, dur); const t = snapTime(timeFromX(px), drag.current.camId);
       if (drag.current.edge === 'start') S().setCameraClip(drag.current.camId, t, ce);
       else S().setCameraClip(drag.current.camId, cs, t);
+    }
+    else if (drag.current.mode === 'clip-move' && drag.current.camId) {
+      const target = snapTime(drag.current.baseStart! + (timeFromX(px) - drag.current.grabT!), drag.current.camId);
+      S().moveCameraClipTo(drag.current.camId, target); drag.current.moved = true;
     }
     else if (drag.current.mode === 'marquee') {
       drag.current.moved = true;
@@ -148,6 +179,10 @@ export default function Timeline() {
   };
   // Drag teardown (pointerup / cancel / blur) is handled globally by the effect above.
   const onDbl = (e: React.MouseEvent) => { const id = (e.target as SVGElement).getAttribute('data-key'); if (id) S().removeKey(id); };
+  const onCtx = (e: React.MouseEvent) => {
+    const cid = (e.target as SVGElement).getAttribute('data-cam'); if (!cid) return; // right-click a camera bar → menu
+    e.preventDefault(); S().selectCamera(cid); setCtxMenu({ camId: cid, x: e.clientX, y: e.clientY });
+  };
 
   const diamond = (k: Keyframe, cx: number, cy: number, camId: string, half: number) => {
     const sel = st.ui.selectedKeyIds.includes(k.id);
@@ -171,7 +206,7 @@ export default function Timeline() {
             style={{ opacity: st.ui.selectedKeyIds.length ? 1 : 0.4 }}
             onClick={() => { if (st.ui.selectedKeyIds.length) S().removeKeys(st.ui.selectedKeyIds); }}>🗑</button>
         </div>
-        <span className="tc mono" title={durUnit === 'f' ? 'Frame' : 'Timecode H;MM;SS;FF'}>{durUnit === 'f' ? Math.round(tl.playhead * fps) + ' f' : toTimecode(tl.playhead, fps)}</span>
+        <span className="tc" title={durUnit === 'f' ? 'Frame' : 'Timecode H;MM;SS;FF'}>{durUnit === 'f' ? Math.round(tl.playhead * fps) + ' f' : toTimecode(tl.playhead, fps)}</span>
         <div className="tl-spacer" />
         <label className="tl-field">fps
           <select value={fps} onChange={e => S().setFps(+e.target.value)}>
@@ -179,17 +214,26 @@ export default function Timeline() {
           </select>
         </label>
         <label className="tl-field">Duration
-          <input type="number" min={durUnit === 's' ? 0.1 : 1} step={durUnit === 's' ? 0.1 : 1} value={durInputVal}
-            onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) S().setDuration(durUnit === 's' ? v : v / fps); }} style={{ width: 60 }} />
+          {durUnit === 'tc' ? (
+            <input type="text" className="tc-input" value={durText ?? toTimecode(dur, fps)} style={{ width: 92 }}
+              title="Duration as timecode H;MM;SS;FF" placeholder="0;00;00;00"
+              onChange={e => setDurText(e.target.value)}
+              onBlur={() => { if (durText != null) { const v = fromTimecode(durText, fps); if (v != null) S().setDuration(v); setDurText(null); } }}
+              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setDurText(null); }} />
+          ) : (
+            <input type="number" min={durUnit === 's' ? 0.1 : 1} step={durUnit === 's' ? 0.1 : 1} value={durInputVal}
+              onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) S().setDuration(durUnit === 's' ? v : v / fps); }} style={{ width: 60 }} />
+          )}
           <div className="seg" style={{ marginLeft: 4 }}>
             <button className={durUnit === 's' ? 'sel' : ''} onClick={() => setDurUnit('s')}>s</button>
             <button className={durUnit === 'f' ? 'sel' : ''} onClick={() => setDurUnit('f')}>f</button>
+            <button className={durUnit === 'tc' ? 'sel' : ''} title="Timecode H;MM;SS;FF" onClick={() => setDurUnit('tc')}>tc</button>
           </div>
         </label>
       </div>
 
       <div className="tl-scroll" ref={scrollRef} style={{ flex: 1 }} onScroll={e => setScrollLeft((e.currentTarget as HTMLDivElement).scrollLeft)}>
-        <svg ref={svgRef} id="tl-svg" width={contentW} height={H} onPointerDown={onDown} onPointerMove={onMove} onDoubleClick={onDbl}>
+        <svg ref={svgRef} id="tl-svg" width={contentW} height={H} onPointerDown={onDown} onPointerMove={onMove} onDoubleClick={onDbl} onContextMenu={onCtx}>
           <rect x={0} y={0} width={contentW} height={TOP_H} fill="#101315" />
           {ticks.map(({ f, label }) => {
             const px = x(f / fps);
@@ -208,7 +252,7 @@ export default function Timeline() {
             return (
               <g key={c.id}>
                 <rect data-cam={c.id} x={bs} y={headerY} width={bw} height={TRACK_H} rx={6}
-                  fill={c.color} fillOpacity={active ? 0.9 : 0.4} style={{ cursor: 'pointer' }} />
+                  fill={c.color} fillOpacity={active ? 0.9 : 0.4} style={{ cursor: 'grab' }} />
                 {/* collapsed: one small rectangle per keyframe time (merged) to locate the keys */}
                 {!exp && [...new Set(ks.map(k => Math.round(k.time * 1000)))].map(ms => {
                   const kx = x(ms / 1000);
@@ -281,6 +325,19 @@ export default function Timeline() {
                   border: sel ? '2px solid #fff' : '1px solid #0006', boxShadow: sel ? '0 0 0 1px #0008' : 'none' }} />;
             })}
           </div>
+        </div>
+      )}
+
+      {ctxMenu && (
+        <div style={{
+          position: 'fixed', left: ctxMenu.x, top: ctxMenu.y, zIndex: 100,
+          background: 'var(--panel-2)', border: '1px solid var(--line-2)', borderRadius: 8,
+          boxShadow: '0 8px 30px rgba(0,0,0,.5)', padding: 4, minWidth: 160,
+        }} onPointerDown={e => e.stopPropagation()}>
+          <button className="btn-sm btn-full" style={{ border: 'none', justifyContent: 'flex-start' }}
+            onClick={() => { S().duplicateCamera(ctxMenu.camId); setCtxMenu(null); }}>Duplicate camera</button>
+          <button className="btn-sm btn-full danger" style={{ border: 'none', justifyContent: 'flex-start' }}
+            onClick={() => { S().removeCamera(ctxMenu.camId); setCtxMenu(null); }}>Delete camera</button>
         </div>
       )}
     </div>

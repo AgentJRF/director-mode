@@ -8,6 +8,20 @@ export function toTimecode(t: number, fps: number): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${h};${p(m)};${p(s)};${p(f)}`;
 }
+// Parse a timecode back to seconds. Accepts "H;MM;SS;FF" (or : . / space separators) and shorter forms,
+// read right-to-left as frames, seconds, minutes, hours. Returns null on garbage.
+export function fromTimecode(str: string, fps: number): number | null {
+  const parts = String(str).trim().split(/[;:.\s/]+/).filter(Boolean);
+  if (!parts.length) return null;
+  const nums = parts.map(Number); if (nums.some(n => isNaN(n))) return null;
+  const n = nums.length;
+  const f = nums[n - 1] || 0;
+  const s = n >= 2 ? nums[n - 2] || 0 : 0;
+  const m = n >= 3 ? nums[n - 3] || 0 : 0;
+  const h = n >= 4 ? nums[n - 4] || 0 : 0;
+  return h * 3600 + m * 60 + s + f / (fps || 30);
+}
+
 export const snapToFrame = (t: number, fps: number) => Math.round(t * fps) / fps;
 export const toFrames = (t: number, fps: number) => Math.round(t * fps);
 

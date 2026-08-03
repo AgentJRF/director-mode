@@ -73,8 +73,10 @@ interface StoreState {
   selectCamera: (id: string) => void;
   addCamera: () => void;
   removeCamera: (id: string) => void;
+  duplicateCamera: (id: string) => string | undefined;
   setCameraColor: (id: string, color: string) => void;
   setCameraClip: (id: string, start: number, end: number) => void;
+  moveCameraClipTo: (id: string, start: number) => void; // slide the whole clip (+ its keyframes) in time
   startInterp: () => void;
   pickInterp: (id: string) => void;
   cancelInterp: () => void;
@@ -211,12 +213,32 @@ export const useStore = create<StoreState>((set, get) => {
       bump();
     },
     setCameraColor: (id, color) => { const c = get().project.cameras.find(c => c.id === id); if (c) { c.color = color; bump(); } },
+    duplicateCamera: id => {
+      const p = get().project; const idx = p.cameras.findIndex(c => c.id === id); if (idx < 0) return undefined;
+      const src = p.cameras[idx];
+      const copy: Camera = structuredClone(src); // deep-clones clip, target, optics, transform, keyframes
+      copy.id = uid(); copy.name = src.name + ' copy'; copy.color = CAM_COLORS[p.cameras.length % CAM_COLORS.length];
+      copy.keyframes = copy.keyframes.map(k => ({ ...k, id: uid() }));
+      p.cameras.splice(idx + 1, 0, copy); p.activeCameraId = copy.id;
+      const ui = get().ui; ui.selectedKeyIds = []; ui.targetSelected = false;
+      bump(); return copy.id;
+    },
     setCameraClip: (id, start, end) => {
       const p = get().project; const c = p.cameras.find(c => c.id === id); if (!c) return;
       const dur = p.timeline.duration; const min = 1 / (p.fps || 30); // shortest clip = one frame
       let s = clamp(start, 0, dur), e = clamp(end, 0, dur);
       if (e - s < min) { if (start !== (c.clip?.start ?? 0)) s = clamp(e - min, 0, dur); else e = clamp(s + min, 0, dur); }
       c.clip = { start: round(s, 3), end: round(e, 3) };
+      bump();
+    },
+    moveCameraClipTo: (id, start) => {
+      const p = get().project; const c = p.cameras.find(c => c.id === id); if (!c) return;
+      const dur = p.timeline.duration;
+      const [cs, ce] = clipRange(c, dur); const len = ce - cs;
+      const s = clamp(start, 0, Math.max(0, dur - len));   // keep length; stay inside the timeline
+      const dt = s - cs; if (Math.abs(dt) < 1e-6) return;
+      c.clip = { start: round(s, 3), end: round(s + len, 3) };
+      c.keyframes.forEach(k => { k.time = clamp(round(k.time + dt, 3), 0, dur); }); // the shot's animation moves with it
       bump();
     },
     startInterp: () => {
