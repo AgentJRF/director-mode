@@ -174,9 +174,10 @@ export const useStore = create<StoreState>((set, get) => {
     }
     return on;
   };
-  // The camera the viewport renders: while playing we follow the program (cuts); paused, the selected
-  // camera so it can be composed. Falls back to active when no clip covers the playhead.
-  const renderCamera = () => { const st = get(); return st.project.timeline.playing ? (programCameraAt(st.project.timeline.playhead) ?? active()) : active(); };
+  // The camera the viewport renders: WYSIWYG — always the on-air camera at the playhead, so scrubbing
+  // AND playback both show the multi-camera cuts. Composing happens in the Scene view (selected camera's
+  // gizmo/spline). Falls back to the active camera when no clip covers the playhead (gaps).
+  const renderCamera = () => programCameraAt(get().project.timeline.playhead) ?? active();
 
   return {
     project, rev: 0,

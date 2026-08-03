@@ -7,7 +7,7 @@ import { clamp, evalChannel } from '../lib/eval';
 // Same aperture-driven DoF as the full "Camera" view, so the split POV shows matching bokeh.
 function PovDoF() {
   useStore(s => s.rev);
-  const cam = S().active();
+  const cam = S().renderCamera(); // match DoF/bokeh to the on-air camera (multi-camera cuts)
   const ap = evalChannel(cam, 'aperture', S().project.timeline.playhead) as number;
   const fp = cam.optics.focusPoint;
   const bokeh = clamp((1 / ap) * 10, 1, 8);

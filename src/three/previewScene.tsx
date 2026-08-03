@@ -53,13 +53,13 @@ export function StudioCanvas({ children }: { children: ReactNode }) {
   );
 }
 
-// Rig driving the default camera to the ACTIVE camera's live pose (position/rotation/focal), each
-// frame — used by the split-view camera pane so it tracks edits and playback.
+// Rig driving the default camera to the ON-AIR camera's live pose (position/rotation/focal), each
+// frame — used by the split-view camera pane so it tracks edits, playback AND multi-camera cuts.
 export function LiveCameraRig() {
   const camera = useThree(s => s.camera) as THREE.PerspectiveCamera;
   const size = useThree(s => s.size);
   useFrame(() => {
-    const p = evaluate(S().active(), S().project.timeline.playhead);
+    const p = evaluate(S().renderCamera(), S().project.timeline.playhead);
     camera.position.set(p.position[0], p.position[1], p.position[2]);
     const e = p.rotation.map(THREE.MathUtils.degToRad);
     camera.rotation.set(e[0], e[1], e[2], 'YXZ');
