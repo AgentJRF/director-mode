@@ -40,9 +40,11 @@ function makeScrub(base: number, step: number, dec: number, onChange: (v: number
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp); window.removeEventListener('blur', onUp);
       if (!moved) { input.focus(); input.select(); } // treat as a click → edit by keyboard
     };
     window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp); window.addEventListener('blur', onUp);
   };
 }
 

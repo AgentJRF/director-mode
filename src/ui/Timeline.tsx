@@ -20,7 +20,24 @@ export default function Timeline() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const [colorMenu, setColorMenu] = useState<{ camId: string; x: number; y: number } | null>(null);
-  const drag = useRef<{ mode: 'scrub' | 'key' | 'marquee' | 'clip'; keyId?: string; camId?: string; edge?: 'start' | 'end'; x0?: number; y0?: number; moved?: boolean; grabbedBase?: number; base?: { id: string; t: number }[] } | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const drag = useRef<{ mode: 'scrub' | 'key' | 'marquee' | 'clip'; keyId?: string; camId?: string; edge?: 'start' | 'end'; x0?: number; y0?: number; moved?: boolean; grabbedBase?: number; base?: { id: string; t: number }[]; pointerId?: number } | null>(null);
+
+  // End any in-progress drag on ANY pointerup/cancel or window blur — even if the SVG's own pointerup is
+  // missed (released outside the element, over browser chrome, etc.). Also releases the pointer capture so
+  // a stuck capture can never leave the whole UI unclickable.
+  useEffect(() => {
+    const end = () => {
+      const d = drag.current; if (!d) return;
+      if (svgRef.current && d.pointerId != null) { try { svgRef.current.releasePointerCapture(d.pointerId); } catch { /* noop */ } }
+      if (d.mode === 'marquee' && !d.moved) S().selectKey(null); // click on empty area clears selection
+      drag.current = null; setMarquee(null);
+    };
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    window.addEventListener('blur', end);
+    return () => { window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end); window.removeEventListener('blur', end); };
+  }, []);
 
   useEffect(() => {
     if (!colorMenu) return;
@@ -89,7 +106,7 @@ export default function Timeline() {
       const edge = el.getAttribute('data-clip-start') ? 'start' as const : 'end' as const;
       if (clipEdge !== proj.activeCameraId) S().selectCamera(clipEdge);
       try { (e.currentTarget as SVGElement).setPointerCapture(e.pointerId); } catch { /* best-effort */ }
-      drag.current = { mode: 'clip', camId: clipEdge, edge };
+      drag.current = { mode: 'clip', camId: clipEdge, edge, pointerId: e.pointerId };
       return;
     }
     const keyId = el.getAttribute('data-key'); const camId = el.getAttribute('data-cam');
@@ -104,10 +121,10 @@ export default function Timeline() {
       if (!sel.includes(keyId)) S().selectKey(keyId);
       const times = new Map(S().active().keyframes.map(k => [k.id, k.time]));
       const base = moving.map(id => ({ id, t: times.get(id)! })).filter(b => b.t !== undefined);
-      drag.current = { mode: 'key', keyId, grabbedBase: times.get(keyId)!, base };
+      drag.current = { mode: 'key', keyId, grabbedBase: times.get(keyId)!, base, pointerId: e.pointerId };
     }
-    else if (py < TOP_H) { drag.current = { mode: 'scrub' }; S().setPlayhead(snap(timeFromX(px))); } // ruler → scrub
-    else { drag.current = { mode: 'marquee', x0: px, y0: py, moved: false }; setMarquee({ x0: px, y0: py, x1: px, y1: py }); } // body → drag-select
+    else if (py < TOP_H) { drag.current = { mode: 'scrub', pointerId: e.pointerId }; S().setPlayhead(snap(timeFromX(px))); } // ruler → scrub
+    else { drag.current = { mode: 'marquee', x0: px, y0: py, moved: false, pointerId: e.pointerId }; setMarquee({ x0: px, y0: py, x1: px, y1: py }); } // body → drag-select
   };
   const onMove = (e: React.PointerEvent) => {
     if (!drag.current) return; const { x: px, y: py } = svgPt(e);
@@ -129,10 +146,7 @@ export default function Timeline() {
       S().setSelectedKeys(keyPositions.filter(k => k.x >= lx && k.x <= hx && k.y >= ly && k.y <= hy).map(k => k.id));
     }
   };
-  const onUp = () => {
-    if (drag.current?.mode === 'marquee' && !drag.current.moved) S().selectKey(null); // click on empty area clears selection
-    drag.current = null; setMarquee(null);
-  };
+  // Drag teardown (pointerup / cancel / blur) is handled globally by the effect above.
   const onDbl = (e: React.MouseEvent) => { const id = (e.target as SVGElement).getAttribute('data-key'); if (id) S().removeKey(id); };
 
   const diamond = (k: Keyframe, cx: number, cy: number, camId: string, half: number) => {
@@ -175,7 +189,7 @@ export default function Timeline() {
       </div>
 
       <div className="tl-scroll" ref={scrollRef} style={{ flex: 1 }} onScroll={e => setScrollLeft((e.currentTarget as HTMLDivElement).scrollLeft)}>
-        <svg id="tl-svg" width={contentW} height={H} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onDoubleClick={onDbl}>
+        <svg ref={svgRef} id="tl-svg" width={contentW} height={H} onPointerDown={onDown} onPointerMove={onMove} onDoubleClick={onDbl}>
           <rect x={0} y={0} width={contentW} height={TOP_H} fill="#101315" />
           {ticks.map(({ f, label }) => {
             const px = x(f / fps);
