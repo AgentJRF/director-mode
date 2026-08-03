@@ -58,13 +58,14 @@ export const IcInterp = ({ size }: IconProps) => (
 // Undo / Redo — stroked curved arrows (not filled) for clarity.
 export const IcUndo = ({ size = 16 }: IconProps) => (
   <svg viewBox="0 0 20 20" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M5 9 H12 a3.6 3.6 0 1 1 -3.6 3.6" />
-    <path d="M8 5.6 L4.6 9 L8 12.4" />
+    {/* left-pointing arrow whose tail curves a quarter-turn down — a "back" arrow, no full loop */}
+    <path d="M8 6 L4.3 9.5 L8 13" />
+    <path d="M4.3 9.5 H12 a4 4 0 0 1 4 4 V14.6" />
   </svg>
 );
 export const IcRedo = ({ size = 16 }: IconProps) => (
   <svg viewBox="0 0 20 20" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M15 9 H8 a3.6 3.6 0 1 0 3.6 3.6" />
-    <path d="M12 5.6 L15.4 9 L12 12.4" />
+    <path d="M12 6 L15.7 9.5 L12 13" />
+    <path d="M15.7 9.5 H8 a4 4 0 0 0 -4 4 V14.6" />
   </svg>
 );
