@@ -1,5 +1,5 @@
 import { useThree, useFrame } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, type RefObject } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Line, PivotControls } from '@react-three/drei';
 import { useStore, S, upsertKeyOn } from '../store';
@@ -17,7 +17,7 @@ const EASE_COLOR: Record<string, string> = { linear: '#8a93a0', easeIn: '#5b9dd9
 // this the path is treated as flat, so numeric wobble on a nominally flat move doesn't turn red.
 const HEIGHT_MIN_SPAN = 0.3;
 
-export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<THREE.PerspectiveCamera | null> }) {
+export default function SceneGizmos() {
   const rev = useStore(s => s.rev);
   const multiview = useStore(s => s.ui.multiview);
   const interp = useStore(s => s.ui.interp);
@@ -35,11 +35,17 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
 
   useFrame(() => {
     R3.sceneCam = camera as THREE.PerspectiveCamera; // expose the scene camera for the marquee overlay
-    const rc = renderCamRef.current; if (!rc) return;
-    const poi = poiPoint(S().active(), S().project.timeline.playhead);
-    frustumCam.position.copy(rc.position); frustumCam.quaternion.copy(rc.quaternion);
-    frustumCam.fov = rc.fov; frustumCam.aspect = S().project.canvas.width / S().project.canvas.height;
-    frustumCam.far = Math.max(0.5, rc.position.distanceTo(new THREE.Vector3(poi[0], poi[1], poi[2])));
+    // The frustum follows the ACTIVE (selected) camera being edited — same pose as the body/gizmo/
+    // spline — so switching cameras moves the frame. (WYSIWYG program selection is only for the
+    // Camera POV render, not this Scene-view editing aid.)
+    const a = S().active(); const t = S().project.timeline.playhead;
+    const p = evaluate(a, t);
+    const poi = poiPoint(a, t);
+    frustumCam.position.set(p.position[0], p.position[1], p.position[2]);
+    frustumCam.rotation.set(d2r(p.rotation[0]), d2r(p.rotation[1]), d2r(p.rotation[2]), 'YXZ');
+    frustumCam.filmGauge = 36; frustumCam.setFocalLength(p.focalLength);
+    frustumCam.aspect = S().project.canvas.width / S().project.canvas.height;
+    frustumCam.far = Math.max(0.5, new THREE.Vector3(...p.position).distanceTo(new THREE.Vector3(poi[0], poi[1], poi[2])));
     frustumCam.updateProjectionMatrix(); frustumCam.updateMatrixWorld(true); helper.update();
     // NB: the camera body is a child of PivotControls (positioned by `matrix` at the camera
     // pose). It must stay at local origin — do NOT copy the world camera transform onto it.
@@ -241,8 +247,10 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
         disableAxes={multiview} disableSliders={multiview} disableRotations={multiview || !!cam.target}
         onDragStart={onDragStart} onDrag={onDrag} onDragEnd={onDragEnd}>
         <group ref={bodyRef}>
-          <mesh position={[0, 0, 0.08]} userData={{ gizmo: { kind: 'camera' } }}><boxGeometry args={[0.22, 0.16, 0.26]} /><meshStandardMaterial color="#15181b" roughness={0.5} metalness={0.6} /></mesh>
-          <mesh position={[0, 0, -0.12]} rotation={[Math.PI / 2, 0, 0]} userData={{ gizmo: { kind: 'camera' } }}><cylinderGeometry args={[0.07, 0.09, 0.14, 20]} /><meshStandardMaterial color="#0c0e10" roughness={0.4} metalness={0.7} /></mesh>
+          {/* Body tinted with the camera's own colour (+ emissive) so the SELECTED camera stays
+              identifiable and visible — matching the coloured markers of the other cameras. */}
+          <mesh position={[0, 0, 0.08]} userData={{ gizmo: { kind: 'camera' } }}><boxGeometry args={[0.22, 0.16, 0.26]} /><meshStandardMaterial color={cam.color} emissive={cam.color} emissiveIntensity={0.5} roughness={0.5} metalness={0.4} /></mesh>
+          <mesh position={[0, 0, -0.12]} rotation={[Math.PI / 2, 0, 0]} userData={{ gizmo: { kind: 'camera' } }}><cylinderGeometry args={[0.07, 0.09, 0.14, 20]} /><meshStandardMaterial color={cam.color} emissive={cam.color} emissiveIntensity={0.5} roughness={0.4} metalness={0.5} /></mesh>
         </group>
       </PivotControls>}
       {pts.length >= 2 && (vizColors

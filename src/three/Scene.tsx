@@ -111,7 +111,7 @@ export default function Scene() {
         mouseButtons={{ LEFT: undefined, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE }}
         enablePan screenSpacePanning panSpeed={1.1} minDistance={1.5} maxDistance={120} />}
       {mode === 'scene' && !multiview && <EditorFly />}
-      {mode === 'scene' && hasCam && <SceneGizmos renderCamRef={renderCamRef} />}
+      {mode === 'scene' && hasCam && <SceneGizmos />}
       {mode === 'scene' && !multiview && <CameraMarkers />}
       {mode === 'scene' && !multiview && hasCam && <PoiControl />}
       {quad && <MultiviewRenderer sceneCamRef={sceneCamRef} />}

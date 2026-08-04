@@ -89,6 +89,7 @@ interface StoreState {
   toggleKeyAt: (ch: Channel, value: Vec3 | number) => void;
   editPose: (channel: 'position' | 'rotation', i: number, value: number) => void;
   editPoi: (i: number, value: number) => void;
+  aimAt: (point: Vec3) => void;
   setFocusPoint: (p: Vec3 | null) => void;
   setFocusPicking: (b: boolean) => void;
   toggleHidden: (id: string) => void;
@@ -180,6 +181,12 @@ export const useStore = create<StoreState>((set, get) => {
   // AND playback both show the multi-camera cuts. Composing happens in the Scene view (selected camera's
   // gizmo/spline). Falls back to the active camera when no clip covers the playhead (gaps).
   const renderCamera = () => programCameraAt(get().project.timeline.playhead) ?? active();
+  // First palette colour not already used by an existing camera, so adds/merges/removes never collide
+  // (e.g. after A→B interpolation drops a camera). Falls back to a count-based index if all are taken.
+  const nextColor = () => {
+    const used = new Set(get().project.cameras.map(c => c.color));
+    return CAM_COLORS.find(c => !used.has(c)) ?? CAM_COLORS[get().project.cameras.length % CAM_COLORS.length];
+  };
 
   return {
     project, rev: 0,
@@ -203,7 +210,7 @@ export const useStore = create<StoreState>((set, get) => {
     setTool: t => { get().ui.tool = t; bump(); },
     toast: m => { get().ui.toast = m; bump(); setTimeout(() => { if (get().ui.toast === m) { get().ui.toast = ''; bump(); } }, 2600); },
     selectCamera: id => { get().project.activeCameraId = id; get().ui.selectedKeyIds = []; get().ui.targetSelected = false; bump(); },
-    addCamera: () => { const p = get().project; const c = makeCamera('Camera ' + String(p.cameras.length + 1).padStart(2, '0'), undefined, CAM_COLORS[p.cameras.length % CAM_COLORS.length]); p.cameras.push(c); p.activeCameraId = c.id; bump(); },
+    addCamera: () => { const p = get().project; const c = makeCamera('Camera ' + String(p.cameras.length + 1).padStart(2, '0'), undefined, nextColor()); p.cameras.push(c); p.activeCameraId = c.id; bump(); },
     removeCamera: id => {
       const p = get().project;
       const idx = p.cameras.findIndex(c => c.id === id); if (idx < 0) return;
@@ -217,7 +224,7 @@ export const useStore = create<StoreState>((set, get) => {
       const p = get().project; const idx = p.cameras.findIndex(c => c.id === id); if (idx < 0) return undefined;
       const src = p.cameras[idx];
       const copy: Camera = structuredClone(src); // deep-clones clip, target, optics, transform, keyframes
-      copy.id = uid(); copy.name = src.name + ' copy'; copy.color = CAM_COLORS[p.cameras.length % CAM_COLORS.length];
+      copy.id = uid(); copy.name = src.name + ' copy'; copy.color = nextColor();
       copy.keyframes = copy.keyframes.map(k => ({ ...k, id: uid() }));
       p.cameras.splice(idx + 1, 0, copy); p.activeCameraId = copy.id;
       const ui = get().ui; ui.selectedKeyIds = []; ui.targetSelected = false;
@@ -299,10 +306,23 @@ export const useStore = create<StoreState>((set, get) => {
       const cam = active(); const t = get().project.timeline.playhead;
       if (cam.target?.type === 'object') return; // aim locked by object target
       const cur = poiPoint(cam, t).slice() as Vec3; cur[i] = value;
-      // editing the POI makes it own the aim → ensure a point target (rotation becomes derived)
-      if (!cam.target || cam.target.type !== 'point') { cam.target = { type: 'point', point: cur }; cam.keyframes = cam.keyframes.filter(k => k.channel !== 'rotation'); }
-      if (keysOf(cam, 'poi').length) upsertKeyOn(cam, 'poi', cur, t, 'manual');
-      else cam.target.point = cur;
+      get().aimAt(cur);
+    },
+    // Aim the camera at a world point. A FREE camera stays free — we write (or keyframe) its ROTATION
+    // via look-at, so rotation remains manually animatable. A point target moves/animates its point
+    // (rotation is derived). An object target is locked. Never silently converts a free cam to a target.
+    aimAt: point => {
+      const c = active(); const t = get().project.timeline.playhead;
+      if (c.target?.type === 'object') return;
+      if (c.target?.type === 'point') {
+        if (keysOf(c, 'poi').length) upsertKeyOn(c, 'poi', point, t, 'manual');
+        else c.target.point = point;
+      } else {
+        const pos = evaluate(c, t).position;
+        const rot = eulerFromLookAt(pos, point);
+        if (keysOf(c, 'rotation').length) upsertKeyOn(c, 'rotation', rot, t, 'manual');
+        else c.transform.rotation = rot;
+      }
       bump();
     },
     setFocusPoint: p => { active().optics.focusPoint = p; bump(); },
