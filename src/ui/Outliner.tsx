@@ -17,7 +17,7 @@ function Eye({ id }: { id: string }) {
 function TargetBadge() {
   const st = S(); const sel = st.ui.targetSelected;
   return (
-    <span className="ol-target" title={sel ? 'Cible sélectionnée — Suppr pour retirer' : "Cible de la caméra active (clic pour sélectionner, clic droit pour retirer)"}
+    <span className="ol-target" title={sel ? 'Target selected — Del to remove' : 'Active camera target (click to select, right-click to remove)'}
       onClick={e => { e.stopPropagation(); st.selectTarget(!sel); }}
       style={{ display: 'inline-flex', marginLeft: 'auto', marginRight: 4, cursor: 'pointer', color: sel ? 'var(--amber)' : 'var(--blue)' }}>
       <IcTarget size={13} />
@@ -96,7 +96,7 @@ export default function Outliner() {
           boxShadow: '0 8px 30px rgba(0,0,0,.5)', padding: 4, minWidth: 150,
         }} onPointerDown={e => e.stopPropagation()}>
           <button className="btn-sm btn-full" style={{ border: 'none', justifyContent: 'flex-start' }}
-            onClick={() => { st.setTarget(null); setMenu(null); }}>Retirer la cible</button>
+            onClick={() => { st.setTarget(null); setMenu(null); }}>Remove target</button>
         </div>
       )}
 
