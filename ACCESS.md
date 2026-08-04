@@ -3,6 +3,8 @@
 Repo : `git@github.com:AgentJRF/director-mode.git` (privé) · branche par défaut : **`main`**
 Tout est à jour sur `main` (asset produit + police Adobe Clean **inclus dans le repo**, IA mockée sans clé).
 
+**🔗 Lien de démo à partager (rien à installer)** : https://director-mode.vercel.app/ — hébergé sur Vercel, mis à jour à chaque `git push` (IA de démo bakée côté client).
+
 > ⚠️ **Toujours lancer avec `npm run dev`** (pas `npm run build` / `preview`) : les fonctions **IA**
 > (match caméra image/vidéo) sont des endpoints du **serveur de dev** Vite — elles n'existent pas
 > dans un build statique.
@@ -13,7 +15,7 @@ Tout est à jour sur `main` (asset produit + police Adobe Clean **inclus dans le
 
 Prérequis : **Node.js 20+** (déjà installé sur ta machine).
 
-- **Le plus simple (Windows)** : dans `C:\Users\fournery\dev\director-mode`, double-clique **`start-dev.cmd`**
+- **Le plus simple (Windows)** : dans `D:\OneDrive - Adobe\Desktop\Claude\director-mode`, double-clique **`start-dev.cmd`**
   (il ajoute Node au PATH et lance le serveur).
 - **Ou en terminal** :
   ```bash
@@ -82,8 +84,7 @@ Les 3 méthodes ci-dessus nécessitent un **accès au repo privé** :
 
 ## Ce que montre le proto
 
-- **2 vues** : ◉ Caméra (rendu final + bokeh, **aperçu pur**) · ⬚ Scène (édition libre, gizmo, grille infinie).
-- **Créer un mouvement** : manuel, presets (orbit / push / crane…), interpolation A→B, ou **IA** (match
-  caméra depuis une image, match mouvement depuis une vidéo — mockés, sans clé).
-- **Timeline** unique de clés éditables · **Export** WebM / PNG.
-- UI alignée **Adobe Spectrum / Substance 3D Dimension** (police Adobe Clean, icônes Spectrum 2).
+- **4 vues** : ◉ Caméra (rendu final + bokeh, **aperçu pur**) · ⬚ Scène (édition libre, gizmo, grille infinie) · ▥ Split (Scène + Caméra) · ⊞ Quad (Persp / Top / Front / Side).
+- **Créer un mouvement** : manuel, presets (orbit / arc / push / crane / dolly zoom…), interpolation A→B, ou **IA** (match caméra depuis une image, match mouvement depuis une vidéo — mockés, sans clé).
+- **Timeline** unique de clés éditables · **Export** WebM / PNG (MP4 / ProRes visés en version finale).
+- UI alignée **Adobe Spectrum / Adobe Dimension** (police Adobe Clean, icônes Spectrum 2).
