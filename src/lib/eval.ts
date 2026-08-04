@@ -45,6 +45,36 @@ export function handleOffset(ks: Keyframe[], i: number, which: 'in' | 'out'): Ve
   return [(nv[0] - kv[0]) / 3, (nv[1] - kv[1]) / 3, (nv[2] - kv[2]) / 3];
 }
 const addv = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const distv = (a: Vec3, b: Vec3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+// Arc-length reparameterization of a cubic Bézier segment.
+// A Bézier's natural parameter `t` is NOT proportional to distance travelled, so pulling the
+// tangent handles makes a "linear" ease look non-uniform (fast on straight bits, slow on bends).
+// This maps a fraction of the segment's ARC LENGTH (0..1) — which is what the speed curve produces —
+// to the natural parameter `t` that yields that distance, so the ease actually controls speed.
+export function bezierArcParam(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, sFrac: number, samples = 32): number {
+  if (sFrac <= 0) return 0;
+  if (sFrac >= 1) return 1;
+  const ts: number[] = [0];
+  const cum: number[] = [0];
+  let prev = p0;
+  let total = 0;
+  for (let i = 1; i <= samples; i++) {
+    const t = i / samples;
+    const pt = bezier3(p0, p1, p2, p3, t);
+    total += distv(prev, pt);
+    ts.push(t);
+    cum.push(total);
+    prev = pt;
+  }
+  if (total === 0) return sFrac; // degenerate segment (all control points coincident)
+  const target = sFrac * total;
+  let i = 1;
+  while (i < samples && cum[i] < target) i++;
+  const segLen = cum[i] - cum[i - 1] || 1;
+  const f = (target - cum[i - 1]) / segLen;
+  return ts[i - 1] + f * (ts[i] - ts[i - 1]);
+}
 
 export function evalChannel(cam: Camera, ch: Channel, t: number): Vec3 | number {
   const ks = keysOf(cam, ch);
@@ -66,7 +96,10 @@ export function evalChannel(cam: Camera, ch: Channel, t: number): Vec3 | number 
     // cubic Bézier segment: P0=a, P1=a+outTangent(a), P2=b+inTangent(b), P3=b
     const p1 = addv(av, handleOffset(ks, i, 'out'));
     const p2 = addv(bv, handleOffset(ks, i + 1, 'in'));
-    return bezier3(av, p1, p2, bv, e);
+    // The ease `e` is a fraction of ARC LENGTH; reparameterize so the speed curve controls actual
+    // distance travelled regardless of how the tangent handles are pulled.
+    const bt = bezierArcParam(av, p1, p2, bv, e);
+    return bezier3(av, p1, p2, bv, bt);
   }
   return [lerp(av[0], bv[0], e), lerp(av[1], bv[1], e), lerp(av[2], bv[2], e)];
 }

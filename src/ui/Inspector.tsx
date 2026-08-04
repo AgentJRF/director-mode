@@ -110,21 +110,44 @@ function EaseCurve({ ease }: { ease: Ease }) {
   );
 }
 
-function KeyInspector({ ks }: { ks: Keyframe[] }) {
+// The ease is stored on a segment's END key (eval reads b.ease). Selecting the FIRST key of a channel
+// and picking an ease would otherwise be a silent no-op, so redirect it to the outgoing segment — that
+// channel's next key. Deletion still targets the actually-selected keys, not the redirected ones.
+function easeTargetKeys(cam: Camera, ks: Keyframe[]): Keyframe[] {
+  const out: Keyframe[] = []; const seen = new Set<string>();
+  for (const k of ks) {
+    const chk = keysOf(cam, k.channel);
+    const idx = chk.findIndex(x => x.id === k.id);
+    const tgt = idx === 0 && chk.length > 1 ? chk[1] : k; // first key → the segment it starts
+    if (!seen.has(tgt.id)) { seen.add(tgt.id); out.push(tgt); }
+  }
+  return out;
+}
+
+function KeyInspector({ ks, cam }: { ks: Keyframe[]; cam: Camera }) {
   const st = S();
-  const ids = ks.map(k => k.id);
   const single = ks.length === 1;
-  const eases = new Set(ks.map(k => k.ease));
-  const common = eases.size === 1 ? ks[0].ease : null; // null = mixed
+  const targets = easeTargetKeys(cam, ks); // keys whose ease actually drives the motion
+  // A target drives a segment only if it has an incoming one (not the first key of its channel).
+  const controllable = targets.some(t => keysOf(cam, t.channel).findIndex(x => x.id === t.id) > 0);
+  const ids = targets.map(k => k.id);
+  const eases = new Set(targets.map(k => k.ease));
+  const common = eases.size === 1 ? targets[0].ease : null; // null = mixed
   return (
     <div className="sect" style={{ background: 'var(--panel-2)' }}>
       {/* Time is edited on the timeline, value in the Transform panel below — this panel is the ease curve. */}
       <div className="sect-t">Speed curve presets{!single && <span className="st">{ks.length} keys</span>}{!single && common === null && <span className="st">mixed</span>}</div>
-      <div className="ease-grid">
-        {EASE_LIST.map(ez => <div key={ez} className={'ease-opt' + (common === ez ? ' sel' : '')} onClick={() => st.setKeysEase(ids, ez)}>{ez}</div>)}
-      </div>
-      <EaseCurve ease={common ?? ks[0].ease} />
-      <button className="btn-sm danger btn-full" style={{ marginTop: 10 }} onClick={() => st.removeKeys(ids)}>{single ? 'Delete key' : `Delete ${ks.length} keys`}</button>
+      {controllable ? (
+        <>
+          <div className="ease-grid">
+            {EASE_LIST.map(ez => <div key={ez} className={'ease-opt' + (common === ez ? ' sel' : '')} onClick={() => st.setKeysEase(ids, ez)}>{ez}</div>)}
+          </div>
+          <EaseCurve ease={common ?? targets[0].ease} />
+        </>
+      ) : (
+        <p className="hint" style={{ margin: '6px 0 0' }}>Add another keyframe to give this move a speed curve.</p>
+      )}
+      <button className="btn-sm danger btn-full" style={{ marginTop: 10 }} onClick={() => st.removeKeys(ks.map(k => k.id))}>{single ? 'Delete key' : `Delete ${ks.length} keys`}</button>
     </div>
   );
 }
@@ -246,7 +269,7 @@ export default function Inspector() {
     <div id="inspector">
       <Outliner />
 
-      {selKeys.length > 0 ? <KeyInspector ks={selKeys} /> : <MoveCurve cam={cam} />}
+      {selKeys.length > 0 ? <KeyInspector ks={selKeys} cam={cam} /> : <MoveCurve cam={cam} />}
 
       <div className="sect">
         <div className="sect-t">Transform</div>

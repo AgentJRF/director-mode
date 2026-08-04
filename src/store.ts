@@ -321,7 +321,7 @@ export const useStore = create<StoreState>((set, get) => {
     setSelectedKeys: ids => { get().ui.selectedKeyIds = ids; bump(); },
     toggleSelectKey: id => { const s = get().ui.selectedKeyIds; get().ui.selectedKeyIds = s.includes(id) ? s.filter(x => x !== id) : [...s, id]; bump(); },
     removeKeys: ids => { const c = active(); const set = new Set(ids); c.keyframes = c.keyframes.filter(k => !set.has(k.id)); get().ui.selectedKeyIds = get().ui.selectedKeyIds.filter(id => !set.has(id)); bump(); },
-    upsertKey: (ch, value, time, source = 'manual', ease = 'easeInOut') => { upsertKeyOn(active(), ch, value, time, source, ease); bump(); },
+    upsertKey: (ch, value, time, source = 'manual', ease = 'linear') => { upsertKeyOn(active(), ch, value, time, source, ease); bump(); },
     removeKey: id => { const c = active(); c.keyframes = c.keyframes.filter(k => k.id !== id); get().ui.selectedKeyIds = get().ui.selectedKeyIds.filter(x => x !== id); bump(); },
     clearChannel: ch => { const c = active(); c.keyframes = c.keyframes.filter(k => k.channel !== ch); bump(); },
     clearAnim: () => { active().keyframes = []; bump(); },
@@ -363,7 +363,7 @@ export function clipRange(cam: Camera, duration: number): [number, number] {
   return e >= s ? [s, e] : [e, s];
 }
 
-export function upsertKeyOn(cam: Camera, ch: Channel, value: Vec3 | number, time: number, source: KeySource = 'manual', ease: Ease = 'easeInOut') {
+export function upsertKeyOn(cam: Camera, ch: Channel, value: Vec3 | number, time: number, source: KeySource = 'manual', ease: Ease = 'linear') {
   const ks = keysOf(cam, ch);
   const ex = ks.find(k => Math.abs(k.time - time) < 0.02);
   const v = Array.isArray(value) ? (value.slice() as Vec3) : value;

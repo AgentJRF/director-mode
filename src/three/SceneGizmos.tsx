@@ -13,6 +13,9 @@ const ONE = new THREE.Vector3(1, 1, 1);
 // Per-segment colour by the ease ENTERING the segment's end key — lets each animation curve read
 // distinctly, and shows at a glance which easing each segment carries.
 const EASE_COLOR: Record<string, string> = { linear: '#8a93a0', easeIn: '#5b9dd9', easeOut: '#4fb477', easeInOut: '#f2a33c', easeInOutStrong: '#d9614e' };
+// Minimum height range (world units) before the Height viz applies any yellow→red gradient. Below
+// this the path is treated as flat, so numeric wobble on a nominally flat move doesn't turn red.
+const HEIGHT_MIN_SPAN = 0.3;
 
 export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<THREE.PerspectiveCamera | null> }) {
   const rev = useStore(s => s.rev);
@@ -220,7 +223,9 @@ export default function SceneGizmos({ renderCamRef }: { renderCamRef: RefObject<
     return vals.map(v => {
       let f: number;
       if (splineViz === 'speed') f = Math.min(1, Math.max(0, (v / mean - 1) * 1.6)); // constant → 0 (uniform); faster than mean → blue
-      else { f = span > 1e-6 ? Math.min(1, Math.max(0, (v - lo) / span)) : 0; f = f * f * (3 - 2 * f); }
+      // Height: normalize against an ABSOLUTE minimum span (world units) so a flat path isn't stretched
+      // to full yellow→red by sub-millimetre wobble — only a real height change (≥ HEIGHT_MIN_SPAN) colours.
+      else { const denom = Math.max(span, HEIGHT_MIN_SPAN); f = Math.min(1, Math.max(0, (v - lo) / denom)); f = f * f * (3 - 2 * f); }
       return [lerp(A[0], B[0], f), lerp(A[1], B[1], f), lerp(A[2], B[2], f)] as [number, number, number];
     });
   }, [rev, splineViz, pts]);
