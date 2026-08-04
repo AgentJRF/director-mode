@@ -76,6 +76,24 @@ export function bezierArcParam(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, sFrac: nu
   return ts[i - 1] + f * (ts[i] - ts[i - 1]);
 }
 
+// The "speed curve" (ease) is stored per segment, on each segment's END key. When EVERY segment of a
+// move shares one non-linear ease, apply it once across the WHOLE move instead of per segment —
+// otherwise a preset's ease repeats on each hop and the motion "pumps" (slow-fast-slow per segment).
+// Mixed eases (a key tuned individually) fall back to per-segment easing, preserving manual control.
+export function uniformMoveEase(cam: Camera): Ease | null {
+  const byCh: Record<string, Keyframe[]> = {};
+  for (const k of cam.keyframes) { if (!byCh[k.channel]) byCh[k.channel] = []; byCh[k.channel].push(k); }
+  let e: Ease | null = null;
+  for (const ch in byCh) {
+    const ks = byCh[ch].slice().sort((a, b) => a.time - b.time);
+    for (let i = 1; i < ks.length; i++) { // segment-ending keys carry the ease
+      if (e === null) e = ks[i].ease;
+      else if (ks[i].ease !== e) return null;
+    }
+  }
+  return e && e !== 'linear' ? e : null;
+}
+
 export function evalChannel(cam: Camera, ch: Channel, t: number): Vec3 | number {
   const ks = keysOf(cam, ch);
   const base = ch === 'focalLength' ? cam.optics.focalLength
@@ -86,10 +104,19 @@ export function evalChannel(cam: Camera, ch: Channel, t: number): Vec3 | number 
   if (ks.length === 0) return cloneVal(base);
   if (t <= ks[0].time) return cloneVal(ks[0].value);
   if (t >= ks[ks.length - 1].time) return cloneVal(ks[ks.length - 1].value);
-  let i = 0; while (i < ks.length - 1 && ks[i + 1].time < t) i++;
+  // Whole-move ease: remap time once across the entire move, then interpolate LINEARLY inside the
+  // segment (the easing now lives in the remapped time). Falls back to per-segment ease when mixed.
+  const moveEase = uniformMoveEase(cam);
+  let tt = t;
+  if (moveEase) {
+    const t0 = ks[0].time, t1 = ks[ks.length - 1].time;
+    const T = clamp((t - t0) / (t1 - t0 || 1), 0, 1);
+    tt = t0 + (EASES[moveEase] || EASES.linear)(T) * (t1 - t0);
+  }
+  let i = 0; while (i < ks.length - 1 && ks[i + 1].time < tt) i++;
   const a = ks[i], b = ks[i + 1];
-  const raw = (t - a.time) / (b.time - a.time || 1);
-  const e = (EASES[b.ease] || EASES.linear)(clamp(raw, 0, 1));
+  const raw = clamp((tt - a.time) / (b.time - a.time || 1), 0, 1);
+  const e = moveEase ? raw : (EASES[b.ease] || EASES.linear)(raw);
   if (ch === 'focalLength' || ch === 'aperture' || ch === 'motionBlur') return lerp(a.value as number, b.value as number, e);
   const av = a.value as Vec3, bv = b.value as Vec3;
   if (ch === 'position') {
